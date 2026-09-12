@@ -584,6 +584,38 @@
   .remove-link { background: none; border: none; color: var(--ink-soft); text-decoration: underline; font-size: 0.76rem; cursor: pointer; padding: 0; align-self: flex-start; }
   .remove-link:hover { color: var(--accent); }
   .cart-row .price { font-weight: 700; white-space: nowrap; }
+  .checkout-form {
+    padding: 4px 22px 18px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .checkout-form h4 {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin: 14px 0 2px;
+  }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 0.76rem; color: var(--ink-soft); }
+  .field input {
+    padding: 9px 11px;
+    border-radius: 4px;
+    border: 1px solid var(--line-strong);
+    background: var(--card);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.88rem;
+  }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  .field input:invalid:not(:placeholder-shown) { border-color: var(--accent); }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-row-3 { grid-template-columns: 1fr 1fr 1fr; }
+  @media (max-width: 380px) { .form-row-3 { grid-template-columns: 1fr 1fr; } }
+  .field-error { color: var(--accent); font-size: 0.78rem; margin: 0; min-height: 1.1em; }
+
   .cart-foot { padding: 18px 22px 24px; border-top: 1px solid var(--line); }
   .cart-subtotal { display: flex; justify-content: space-between; font-weight: 700; font-size: 1.05rem; margin-bottom: 14px; }
   .cart-note { font-size: 0.72rem; color: var(--ink-soft); text-align: center; margin-top: 10px; }
@@ -709,10 +741,52 @@
     <button class="icon-btn" id="cartClose" aria-label="Close cart">Close ✕</button>
   </div>
   <div class="cart-items" id="cartItems"></div>
+
+  <form class="checkout-form" id="checkoutForm">
+    <h4>Shipping Details</h4>
+    <div class="field">
+      <label for="shipName">Full name</label>
+      <input type="text" id="shipName" name="name" autocomplete="name" required />
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label for="shipEmail">Email</label>
+        <input type="email" id="shipEmail" name="email" autocomplete="email" required />
+      </div>
+      <div class="field">
+        <label for="shipPhone">Phone</label>
+        <input type="tel" id="shipPhone" name="phone" autocomplete="tel" required />
+      </div>
+    </div>
+    <div class="field">
+      <label for="shipAddress1">Address</label>
+      <input type="text" id="shipAddress1" name="address1" autocomplete="address-line1" placeholder="House no., street" required />
+    </div>
+    <div class="field">
+      <label for="shipAddress2">Apartment, suite, etc. (optional)</label>
+      <input type="text" id="shipAddress2" name="address2" autocomplete="address-line2" />
+    </div>
+    <div class="form-row form-row-3">
+      <div class="field">
+        <label for="shipCity">City</label>
+        <input type="text" id="shipCity" name="city" autocomplete="address-level2" required />
+      </div>
+      <div class="field">
+        <label for="shipState">State</label>
+        <input type="text" id="shipState" name="state" autocomplete="address-level1" required />
+      </div>
+      <div class="field">
+        <label for="shipPin">PIN code</label>
+        <input type="text" id="shipPin" name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="postal-code" required />
+      </div>
+    </div>
+    <p class="field-error" id="shipError"></p>
+  </form>
+
   <div class="cart-foot">
     <div class="cart-subtotal"><span>Subtotal</span><span id="cartSubtotal">Rs. 0</span></div>
     <button class="btn btn-solid" style="width:100%; justify-content:center;" id="checkoutBtn">Checkout</button>
-    <p class="cart-note" id="cartNote">Concept preview — no real payment, but your order intent is saved to a live database.</p>
+    <p class="cart-note" id="cartNote">Concept preview — no real payment, but your order and shipping details are saved to a live database.</p>
     <button class="btn btn-ghost" id="downloadInvoiceBtn" style="width:100%; justify-content:center; margin-top:10px; color:var(--ink); border-color:var(--line-strong);" hidden>Download Invoice (PDF)</button>
   </div>
 </aside>
@@ -1050,7 +1124,7 @@
   var downloadsPromise = (window.claude && window.claude.use) ? window.claude.use("downloads") : Promise.resolve(null);
   var lastInvoice = null;
 
-  function buildInvoicePdf(invoiceNo, dateStr, items, subtotal) {
+  function buildInvoicePdf(invoiceNo, dateStr, items, subtotal, customer) {
     var jsPDFCtor = window.jspdf && window.jspdf.jsPDF;
     if (!jsPDFCtor) return null;
     var doc = new jsPDFCtor({ unit: "pt", format: "a4" });
@@ -1075,7 +1149,25 @@
     doc.setTextColor(90, 80, 68);
     doc.text("Invoice No: " + invoiceNo, left, y);
     doc.text("Date: " + dateStr, 350, y);
-    y += 30;
+    y += 26;
+
+    if (customer) {
+      doc.setFontSize(9);
+      doc.setTextColor(140, 128, 110);
+      doc.text("BILL TO / SHIP TO", left, y);
+      y += 14;
+      doc.setFontSize(10);
+      doc.setTextColor(40, 34, 28);
+      doc.text(customer.name, left, y);
+      y += 14;
+      doc.setTextColor(90, 80, 68);
+      doc.text(customer.address1 + (customer.address2 ? ", " + customer.address2 : ""), left, y, { maxWidth: 280 });
+      y += 14;
+      doc.text(customer.city + ", " + customer.state + " " + customer.pin, left, y);
+      y += 14;
+      doc.text(customer.phone + "  ·  " + customer.email, left, y);
+      y += 20;
+    }
 
     doc.setFontSize(9);
     doc.setTextColor(140, 128, 110);
@@ -1188,6 +1280,36 @@
   function closeCart() { cartDrawer.classList.remove("open"); scrim.hidden = true; }
   cartToggle.addEventListener("click", openCart);
   cartClose.addEventListener("click", closeCart);
+  /* ---------- shipping address ---------- */
+  var ADDRESS_KEY = "algodon_demo_address";
+  var checkoutForm = document.getElementById("checkoutForm");
+  var shipError = document.getElementById("shipError");
+  var shipFields = ["shipName", "shipEmail", "shipPhone", "shipAddress1", "shipAddress2", "shipCity", "shipState", "shipPin"];
+
+  (function prefillAddress() {
+    try {
+      var saved = JSON.parse(localStorage.getItem(ADDRESS_KEY));
+      if (!saved) return;
+      shipFields.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el && saved[id]) el.value = saved[id];
+      });
+    } catch (e) {}
+  })();
+
+  function readCustomer() {
+    return {
+      name: document.getElementById("shipName").value.trim(),
+      email: document.getElementById("shipEmail").value.trim(),
+      phone: document.getElementById("shipPhone").value.trim(),
+      address1: document.getElementById("shipAddress1").value.trim(),
+      address2: document.getElementById("shipAddress2").value.trim(),
+      city: document.getElementById("shipCity").value.trim(),
+      state: document.getElementById("shipState").value.trim(),
+      pin: document.getElementById("shipPin").value.trim()
+    };
+  }
+
   checkoutBtn.addEventListener("click", function () {
     var cart = loadCart();
     if (!cart.length) {
@@ -1195,6 +1317,18 @@
       setTimeout(function () { checkoutBtn.textContent = "Checkout"; }, 1800);
       return;
     }
+    if (!checkoutForm.reportValidity()) {
+      shipError.textContent = "Fill in your shipping details to place an order.";
+      return;
+    }
+    shipError.textContent = "";
+    var customer = readCustomer();
+    try {
+      var toSave = {};
+      shipFields.forEach(function (id) { toSave[id] = document.getElementById(id).value; });
+      localStorage.setItem(ADDRESS_KEY, JSON.stringify(toSave));
+    } catch (e) {}
+
     var subtotal = cart.reduce(function (sum, i) { return sum + i.qty * i.price; }, 0);
     checkoutBtn.disabled = true;
     checkoutBtn.textContent = "Saving order…";
@@ -1203,6 +1337,7 @@
       return db.collection("order_intents").add({
         items: cart.map(function (i) { return { name: i.name, size: i.size, qty: i.qty, price: i.price }; }),
         subtotal: subtotal,
+        customer: customer,
         created_at: new Date().toISOString()
       });
     }).then(function () {
@@ -1211,7 +1346,7 @@
 
       var invoiceNo = "ALG-" + Date.now().toString(36).toUpperCase();
       var dateStr = new Date().toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
-      var pdfDoc = buildInvoicePdf(invoiceNo, dateStr, cart, subtotal);
+      var pdfDoc = buildInvoicePdf(invoiceNo, dateStr, cart, subtotal, customer);
       if (pdfDoc) {
         lastInvoice = { doc: pdfDoc, filename: "algodon-invoice-" + invoiceNo + ".pdf" };
         downloadInvoiceBtn.hidden = false;
