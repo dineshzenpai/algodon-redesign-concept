@@ -616,6 +616,22 @@
   @media (max-width: 380px) { .form-row-3 { grid-template-columns: 1fr 1fr; } }
   .field-error { color: var(--accent); font-size: 0.78rem; margin: 0; min-height: 1.1em; }
 
+  .account-body { padding: 20px 22px; overflow-y: auto; flex: 1; }
+  .account-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+  .account-tab {
+    flex: 1;
+    padding: 10px 4px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    font: inherit;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .account-tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+
   .cart-foot { padding: 18px 22px 24px; border-top: 1px solid var(--line); }
   .cart-subtotal { display: flex; justify-content: space-between; font-weight: 700; font-size: 1.05rem; margin-bottom: 14px; }
   .cart-note { font-size: 0.72rem; color: var(--ink-soft); text-align: center; margin-top: 10px; }
@@ -719,7 +735,7 @@
   <a href="#" class="wordmark">ALGODON<span class="sub">ORGANIC</span></a>
   <nav class="icons">
     <button class="icon-btn" id="searchToggle" aria-label="Search">Search</button>
-    <a href="#" aria-label="Account">Account</a>
+    <button class="icon-btn" id="accountToggle" aria-label="Account">Account</button>
     <button class="icon-btn" id="cartToggle" aria-label="Open cart">Cart<span id="cartCount">0</span></button>
   </nav>
 </header>
@@ -788,6 +804,57 @@
     <button class="btn btn-solid" style="width:100%; justify-content:center;" id="checkoutBtn">Checkout</button>
     <p class="cart-note" id="cartNote">Concept preview — no real payment, but your order and shipping details are saved to a live database.</p>
     <button class="btn btn-ghost" id="downloadInvoiceBtn" style="width:100%; justify-content:center; margin-top:10px; color:var(--ink); border-color:var(--line-strong);" hidden>Download Invoice (PDF)</button>
+  </div>
+</aside>
+
+<aside class="cart-drawer" id="accountDrawer" aria-label="Account">
+  <div class="cart-head">
+    <h3>Account</h3>
+    <button class="icon-btn" id="accountClose" aria-label="Close account panel">Close ✕</button>
+  </div>
+
+  <div class="account-body" id="accountSignedOut">
+    <div class="account-tabs" role="tablist">
+      <button type="button" class="account-tab active" id="tabSignIn" role="tab">Sign In</button>
+      <button type="button" class="account-tab" id="tabSignUp" role="tab">Create Account</button>
+    </div>
+
+    <form class="checkout-form" id="signInForm" style="padding:16px 0 0; border-top:none;">
+      <div class="field">
+        <label for="signInEmail">Email</label>
+        <input type="email" id="signInEmail" autocomplete="email" required />
+      </div>
+      <div class="field">
+        <label for="signInPassword">Password</label>
+        <input type="password" id="signInPassword" autocomplete="current-password" required />
+      </div>
+      <p class="field-error" id="signInError"></p>
+      <button type="submit" class="btn btn-solid" style="justify-content:center;">Sign In</button>
+    </form>
+
+    <form class="checkout-form" id="signUpForm" style="padding:16px 0 0; border-top:none;" hidden>
+      <div class="field">
+        <label for="signUpName">Full name</label>
+        <input type="text" id="signUpName" autocomplete="name" required />
+      </div>
+      <div class="field">
+        <label for="signUpEmail">Email</label>
+        <input type="email" id="signUpEmail" autocomplete="email" required />
+      </div>
+      <div class="field">
+        <label for="signUpPassword">Password</label>
+        <input type="password" id="signUpPassword" autocomplete="new-password" minlength="6" required />
+      </div>
+      <p class="field-error" id="signUpError"></p>
+      <button type="submit" class="btn btn-solid" style="justify-content:center;">Create Account</button>
+    </form>
+  </div>
+
+  <div class="account-body" id="accountSignedIn" hidden>
+    <p class="eyebrow">Signed in as</p>
+    <h3 id="accountEmail" style="margin:4px 0 20px;">—</h3>
+    <p style="color:var(--ink-soft); font-size:0.88rem; margin:0 0 20px;">Your name and email will autofill at checkout.</p>
+    <button type="button" class="btn btn-ghost" id="signOutBtn" style="color:var(--ink); border-color:var(--line-strong);">Sign Out</button>
   </div>
 </aside>
 
@@ -1008,9 +1075,17 @@
 </footer>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
 <script>
 (function () {
   "use strict";
+
+  /* ---------- Supabase (customer accounts) ---------- */
+  var SUPABASE_URL = "https://fhqeefukxofxwqcbqckf.supabase.co";
+  var SUPABASE_PUBLISHABLE_KEY = "sb_publishable_bVK_S24WVCoEDZVq93WTkA_d4ZM7Sd0";
+  var sb = (window.supabase && window.supabase.createClient)
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY)
+    : null;
 
   var header = document.getElementById("siteHeader");
   window.addEventListener("scroll", function () {
@@ -1276,7 +1351,7 @@
     cartSubtotalEl.textContent = formatRs(subtotal);
   }
 
-  function openCart() { cartDrawer.classList.add("open"); scrim.hidden = false; }
+  function openCart() { closeAccount(); cartDrawer.classList.add("open"); scrim.hidden = false; }
   function closeCart() { cartDrawer.classList.remove("open"); scrim.hidden = true; }
   cartToggle.addEventListener("click", openCart);
   cartClose.addEventListener("click", closeCart);
@@ -1375,13 +1450,113 @@
     }).catch(function () {});
   });
 
+  /* ---------- account panel ---------- */
+  var accountToggle = document.getElementById("accountToggle");
+  var accountDrawer = document.getElementById("accountDrawer");
+  var accountClose = document.getElementById("accountClose");
+  var accountSignedOut = document.getElementById("accountSignedOut");
+  var accountSignedIn = document.getElementById("accountSignedIn");
+  var accountEmail = document.getElementById("accountEmail");
+  var tabSignIn = document.getElementById("tabSignIn");
+  var tabSignUp = document.getElementById("tabSignUp");
+  var signInForm = document.getElementById("signInForm");
+  var signUpForm = document.getElementById("signUpForm");
+  var signInError = document.getElementById("signInError");
+  var signUpError = document.getElementById("signUpError");
+  var signOutBtn = document.getElementById("signOutBtn");
+
+  function openAccount() { closeCart(); accountDrawer.classList.add("open"); scrim.hidden = false; }
+  function closeAccount() { accountDrawer.classList.remove("open"); scrim.hidden = true; }
+  accountToggle.addEventListener("click", openAccount);
+  accountClose.addEventListener("click", closeAccount);
+
+  tabSignIn.addEventListener("click", function () {
+    tabSignIn.classList.add("active"); tabSignUp.classList.remove("active");
+    signInForm.hidden = false; signUpForm.hidden = true;
+  });
+  tabSignUp.addEventListener("click", function () {
+    tabSignUp.classList.add("active"); tabSignIn.classList.remove("active");
+    signUpForm.hidden = false; signInForm.hidden = true;
+  });
+
+  function showSignedIn(user) {
+    accountSignedOut.hidden = true;
+    accountSignedIn.hidden = false;
+    accountEmail.textContent = user.email;
+    var emailField = document.getElementById("shipEmail");
+    if (emailField && !emailField.value) emailField.value = user.email;
+    var nameField = document.getElementById("shipName");
+    if (nameField && !nameField.value && user.user_metadata && user.user_metadata.full_name) {
+      nameField.value = user.user_metadata.full_name;
+    }
+  }
+  function showSignedOut() {
+    accountSignedOut.hidden = false;
+    accountSignedIn.hidden = true;
+  }
+
+  if (sb) {
+    sb.auth.getSession().then(function (res) {
+      var session = res && res.data && res.data.session;
+      if (session && session.user) showSignedIn(session.user);
+    });
+    sb.auth.onAuthStateChange(function (event, session) {
+      if (session && session.user) showSignedIn(session.user);
+      else showSignedOut();
+    });
+  }
+
+  signInForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    signInError.textContent = "";
+    if (!sb) { signInError.textContent = "Accounts aren't reachable right now."; return; }
+    var email = document.getElementById("signInEmail").value.trim();
+    var password = document.getElementById("signInPassword").value;
+    var btn = signInForm.querySelector("button[type=submit]");
+    btn.disabled = true; btn.textContent = "Signing in…";
+    sb.auth.signInWithPassword({ email: email, password: password }).then(function (res) {
+      if (res.error) { signInError.textContent = res.error.message; return; }
+      signInForm.reset();
+      closeAccount();
+    }).finally(function () { btn.disabled = false; btn.textContent = "Sign In"; });
+  });
+
+  signUpForm.addEventListener("submit", function (e) {
+    e.preventDefault();
+    signUpError.textContent = "";
+    if (!sb) { signUpError.textContent = "Accounts aren't reachable right now."; return; }
+    var name = document.getElementById("signUpName").value.trim();
+    var email = document.getElementById("signUpEmail").value.trim();
+    var password = document.getElementById("signUpPassword").value;
+    var btn = signUpForm.querySelector("button[type=submit]");
+    btn.disabled = true; btn.textContent = "Creating account…";
+    sb.auth.signUp({
+      email: email,
+      password: password,
+      options: { data: { full_name: name } }
+    }).then(function (res) {
+      if (res.error) { signUpError.textContent = res.error.message; return; }
+      if (res.data && res.data.session) {
+        signUpForm.reset();
+        closeAccount();
+      } else {
+        signUpError.textContent = "Account created — check your email to confirm before signing in.";
+      }
+    }).finally(function () { btn.disabled = false; btn.textContent = "Create Account"; });
+  });
+
+  signOutBtn.addEventListener("click", function () {
+    if (!sb) return;
+    sb.auth.signOut();
+  });
+
   scrim.addEventListener("click", function () {
-    closeNav(); closeCart(); closeSearch();
+    closeNav(); closeCart(); closeSearch(); closeAccount();
     scrim.hidden = true;
   });
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
-      closeNav(); closeCart(); closeSearch();
+      closeNav(); closeCart(); closeSearch(); closeAccount();
       sizeGuideModal.hidden = true;
       scrim.hidden = true;
     }
