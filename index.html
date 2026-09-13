@@ -57,120 +57,118 @@
 </aside>
 
 <div class="modal-backdrop" id="accountDrawer" hidden>
-  <div class="modal" style="padding: 0; max-width: 420px; max-height: 90vh; display: flex; flex-direction: column;">
-  <div class="cart-head">
-    <h3>Account</h3>
-    <button class="icon-btn" id="accountClose" aria-label="Close account panel">Close ✕</button>
-  </div>
-
-    <div class="account-body" id="accountSignedOut" style="display: flex; flex-direction: column; justify-content: center;">
-    <h2 id="authTitle" style="text-align: center; margin-bottom: 24px; font-family: 'Fraunces', serif; font-size: 2rem; font-weight: 300;">Sign In</h2>
-
-    <button type="button" id="googleSignInBtn" class="btn btn-ghost" style="width:100%; justify-content:center; margin-bottom:16px; border-color:var(--line-strong); display:flex; gap:10px; align-items:center;">
-      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
-      Continue with Google
-    </button>
-    <div style="display:flex; align-items:center; text-align:center; color:var(--ink-soft); font-size:0.75rem; margin-bottom:16px;">
-      <hr style="flex:1; border:none; border-top:1px solid var(--line);">
-      <span style="padding:0 10px;">or</span>
-      <hr style="flex:1; border:none; border-top:1px solid var(--line);">
-    </div>
-
-    <form class="checkout-form" id="signInForm" style="border: none; padding: 0;">
-      <div class="field">
-        <label for="signInEmail">Email</label>
-        <input type="email" id="signInEmail" autocomplete="email" required />
-      </div>
-      <div class="field">
-        <div style="display: flex; justify-content: space-between; align-items: baseline;">
-          <label for="signInPassword">Password</label>
-          <a href="#" style="font-size: 0.75rem; color: var(--ink-soft); text-decoration: none;">Forgot password?</a>
-        </div>
-        <input type="password" id="signInPassword" autocomplete="current-password" required />
-      </div>
-      <p class="field-error" id="signInError"></p>
-      <button type="submit" class="btn btn-solid" style="justify-content:center; padding: 14px; margin-top: 8px;">Sign In</button>
-    </form>
-
-    <form class="checkout-form" id="signUpForm" style="border: none; padding: 0;" hidden>
-      <div class="field">
-        <label for="signUpName">Full name</label>
-        <input type="text" id="signUpName" autocomplete="name" required />
-      </div>
-      <div class="field">
-        <label for="signUpEmail">Email</label>
-        <input type="email" id="signUpEmail" autocomplete="email" required />
-      </div>
-      <div class="field" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 4px;">
-        <input type="checkbox" id="signUpNewsletter" checked style="width: auto; margin: 0; padding: 0;" />
-        <label for="signUpNewsletter" style="font-size: 0.75rem; color: var(--ink-soft); margin: 0; cursor: pointer;">Keep me updated on news and exclusive offers</label>
-      </div>
-      <div class="field">
-        <label for="signUpPassword">Password</label>
-        <input type="password" id="signUpPassword" autocomplete="new-password" minlength="6" required />
-      </div>
-      <p class="field-error" id="signUpError"></p>
-      <button type="submit" class="btn btn-solid" style="justify-content:center; padding: 14px; margin-top: 8px;">Create Account</button>
-    </form>
+  <div class="modal" style="padding: 0; max-width: 850px; width: 90%; max-height: 90vh; display: flex; flex-direction: row; overflow: hidden; background: var(--surface); position: relative;">
     
-    <div style="text-align: center; margin-top: 32px; font-size: 0.85rem;">
-      <button type="button" id="authToggleBtn" style="background: none; border: none; border-bottom: 1px solid transparent; color: var(--ink-soft); cursor: pointer; padding: 0; font: inherit;">Create an account</button>
-    </div>
-  </div>
+    <!-- Close button absolute positioned -->
+    <button class="icon-btn" id="accountClose" aria-label="Close account panel" style="position: absolute; top: 16px; right: 24px; z-index: 10;">Close ✕</button>
 
-  <div class="account-body" id="accountSignedIn" hidden>
-    <p class="eyebrow">Signed in as</p>
-    <h3 id="accountEmail" style="margin:4px 0 20px;">—</h3>
-    <p style="color:var(--ink-soft); font-size:0.88rem; margin:0 0 20px;">Set your shipping address below.</p>
-    <form class="checkout-form" id="checkoutForm">
-    <h4>Shipping Details</h4>
-    <div class="field">
-      <label for="shipName">Full name</label>
-      <input type="text" id="shipName" name="name" autocomplete="name" required />
-    </div>
-    <div class="form-row">
-      <div class="field">
-        <label for="shipEmail">Email</label>
-        <input type="email" id="shipEmail" name="email" autocomplete="email" required />
-        <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
-          <input type="checkbox" id="shipNewsletter" name="newsletter" checked style="width: auto; margin: 0; padding: 0;" />
-          <label for="shipNewsletter" style="font-size: 0.75rem; color: var(--ink-soft); margin: 0; cursor: pointer;">Email me with news and offers</label>
+    <!-- Left side: Image -->
+    <div style="flex: 1; display: none; @media(min-width: 768px) { display: block; } background: url('img/login-men.jpg') center/cover; min-height: 500px;" class="modal-image-side"></div>
+
+    <!-- Right side: Forms -->
+    <div style="flex: 1; display: flex; flex-direction: column; padding: 48px 40px; overflow-y: auto;">
+      <div class="account-body" id="accountSignedOut" style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
+        <h2 id="authTitle" style="text-align: center; margin-bottom: 24px; font-family: 'Fraunces', serif; font-size: 2rem; font-weight: 300;">Sign In</h2>
+
+        <button type="button" id="googleSignInBtn" class="btn btn-ghost" style="width:100%; justify-content:center; margin-bottom:16px; border-color:var(--line-strong); display:flex; gap:10px; align-items:center;">
+          <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+          Continue with Google
+        </button>
+        <div style="display:flex; align-items:center; text-align:center; color:var(--ink-soft); font-size:0.75rem; margin-bottom:16px;">
+          <hr style="flex:1; border:none; border-top:1px solid var(--line);">
+          <span style="padding:0 10px;">or</span>
+          <hr style="flex:1; border:none; border-top:1px solid var(--line);">
+        </div>
+
+        <form class="checkout-form" id="signInForm" style="border: none; padding: 0;">
+          <div class="field">
+            <label for="signInEmail">Email</label>
+            <input type="email" id="signInEmail" autocomplete="email" required />
+          </div>
+          <div class="field">
+            <div style="display: flex; justify-content: space-between; align-items: baseline;">
+              <label for="signInPassword">Password</label>
+              <a href="#" style="font-size: 0.75rem; color: var(--ink-soft); text-decoration: none;">Forgot password?</a>
+            </div>
+            <input type="password" id="signInPassword" autocomplete="current-password" required />
+          </div>
+          <p class="field-error" id="signInError"></p>
+          <button type="submit" class="btn btn-solid" style="justify-content:center; padding: 14px; margin-top: 8px;">Sign In</button>
+        </form>
+
+        <form class="checkout-form" id="signUpForm" style="border: none; padding: 0;" hidden>
+          <div class="field">
+            <label for="signUpName">Full name</label>
+            <input type="text" id="signUpName" autocomplete="name" required />
+          </div>
+          <div class="field">
+            <label for="signUpEmail">Email</label>
+            <input type="email" id="signUpEmail" autocomplete="email" required />
+          </div>
+          <div class="field" style="flex-direction: row; align-items: center; gap: 8px; margin-top: 4px;">
+            <input type="checkbox" id="signUpNewsletter" checked style="width: auto; margin: 0; padding: 0;" />
+            <label for="signUpNewsletter" style="font-size: 0.75rem; color: var(--ink-soft); margin: 0; cursor: pointer;">Keep me updated on news and exclusive offers</label>
+          </div>
+          <div class="field">
+            <label for="signUpPassword">Password</label>
+            <input type="password" id="signUpPassword" autocomplete="new-password" minlength="6" required />
+          </div>
+          <p class="field-error" id="signUpError"></p>
+          <button type="submit" class="btn btn-solid" style="justify-content:center; padding: 14px; margin-top: 8px;">Create Account</button>
+        </form>
+        
+        <div style="text-align: center; margin-top: 32px; font-size: 0.85rem;">
+          <button type="button" id="authToggleBtn" style="background: none; border: none; border-bottom: 1px solid transparent; color: var(--ink-soft); cursor: pointer; padding: 0; font: inherit;">Create an account</button>
         </div>
       </div>
-      <div class="field">
-        <label for="shipPhone">Phone</label>
-        <input type="tel" id="shipPhone" name="phone" autocomplete="tel" required />
+
+      <div class="account-body" id="accountSignedIn" hidden style="height: 100%;">
+        <p style="font-size: 0.72rem; letter-spacing: 0.1em; color: var(--ink-soft); margin: 0; text-transform: uppercase;">Signed in as</p>
+        <p id="accountEmail" style="font-weight: 700; font-size: 0.95rem; margin-bottom: 16px;"></p>
+        
+        <form class="checkout-form" id="checkoutForm" style="border: none; padding: 0;">
+          <h4 style="margin-top:0;">Shipping Details</h4>
+          <div class="field">
+            <label for="shipName">Full name</label>
+            <input type="text" id="shipName" name="name" autocomplete="name" required />
+          </div>
+          <div class="field">
+            <label for="shipEmail">Email</label>
+            <input type="email" id="shipEmail" name="email" autocomplete="email" required />
+            <div style="display: flex; align-items: center; gap: 8px; margin-top: 6px;">
+              <input type="checkbox" id="shipNewsletter" name="newsletter" checked style="width: auto; margin: 0; padding: 0;" />
+              <label for="shipNewsletter" style="font-size: 0.75rem; color: var(--ink-soft); margin: 0; cursor: pointer;">Email me with news and offers</label>
+            </div>
+          </div>
+          <div class="field">
+            <label for="shipPhone">Phone</label>
+            <input type="tel" id="shipPhone" name="phone" autocomplete="tel" required />
+          </div>
+          <div class="form-row form-row-3">
+            <div class="field">
+              <label for="shipCity">City</label>
+              <input type="text" id="shipCity" name="city" required />
+            </div>
+            <div class="field">
+              <label for="shipState">State</label>
+              <input type="text" id="shipState" name="state" required />
+            </div>
+            <div class="field">
+              <label for="shipPin">PIN code</label>
+              <input type="text" id="shipPin" name="pin" required />
+            </div>
+          </div>
+          <div class="field">
+            <label for="shipAddress">House no, Building, Street</label>
+            <input type="text" id="shipAddress" name="address" required />
+          </div>
+          <p class="field-error" id="shipError"></p>
+        </form>
+        <button type="button" class="btn btn-solid" id="signOutBtn" style="margin-top: 24px; width: 100%; justify-content: center;">Sign Out</button>
       </div>
     </div>
-    <div class="field">
-      <label for="shipAddress1">Address</label>
-      <input type="text" id="shipAddress1" name="address1" autocomplete="address-line1" placeholder="House no., street" required />
-    </div>
-    <div class="field">
-      <label for="shipAddress2">Apartment, suite, etc. (optional)</label>
-      <input type="text" id="shipAddress2" name="address2" autocomplete="address-line2" />
-    </div>
-    <div class="form-row form-row-3">
-      <div class="field">
-        <label for="shipCity">City</label>
-        <input type="text" id="shipCity" name="city" autocomplete="address-level2" required />
-      </div>
-      <div class="field">
-        <label for="shipState">State</label>
-        <input type="text" id="shipState" name="state" autocomplete="address-level1" required />
-      </div>
-      <div class="field">
-        <label for="shipPin">PIN code</label>
-        <input type="text" id="shipPin" name="pin" inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="postal-code" required />
-      </div>
-    </div>
-    <p class="field-error" id="shipError"></p>
-  </form>
-    <button type="button" class="btn btn-solid" id="signOutBtn" style="margin-top: 24px; width: 100%; justify-content: center;">Sign Out</button>
-  </div>
   </div>
 </div>
-
 <div class="modal-backdrop" id="sizeGuideModal" hidden>
   <div class="modal">
     <div class="modal-head">
