@@ -448,7 +448,11 @@ import { animate, inView, spring, stagger } from 'motion';
   var isSignIn = true;
 
   function openAccount() { closeCart(); accountDrawer.hidden = false; animate(accountDrawer.querySelector(".modal"), { opacity: [0, 1], y: [20, 0], scale: [0.95, 1] }, { duration: 0.4, easing: spring() }); animate(accountDrawer, { backgroundColor: ["rgba(0,0,0,0)", "rgba(33,28,22,0.95)"] }, { duration: 0.4 }); }
-  function closeAccount() { animate(accountDrawer.querySelector(".modal"), { opacity: 0, scale: 0.95, y: 10 }, { duration: 0.2 }).finished.then(() => { accountDrawer.hidden = true; }); animate(accountDrawer, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 }); }
+  function closeAccount() { 
+    if (accountDrawer.hidden) return;
+    animate(accountDrawer.querySelector(".modal"), { opacity: 0, scale: 0.95, y: 10 }, { duration: 0.2 }).finished.then(() => { accountDrawer.hidden = true; }); 
+    animate(accountDrawer, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 }); 
+  }
   accountToggle.addEventListener("click", openAccount);
   accountClose.addEventListener("click", closeAccount);
   accountDrawer.addEventListener("click", function (e) {
