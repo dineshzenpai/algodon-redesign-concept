@@ -614,20 +614,7 @@
   .field-error { color: var(--accent); font-size: 0.78rem; margin: 0; min-height: 1.1em; }
 
   .account-body { padding: 32px 40px; overflow-y: auto; flex: 1; }
-  .account-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
-  .account-tab {
-    flex: 1;
-    padding: 10px 4px;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    font: inherit;
-    font-weight: 700;
-    font-size: 0.85rem;
-    color: var(--ink-soft);
-    cursor: pointer;
-  }
-  .account-tab.active { color: var(--ink); border-bottom-color: var(--accent); }
+  
 
   .cart-foot { padding: 18px 22px 24px; border-top: 1px solid var(--line); }
   .cart-subtotal { display: flex; justify-content: space-between; font-weight: 700; font-size: 1.05rem; margin-bottom: 14px; }

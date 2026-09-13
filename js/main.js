@@ -436,13 +436,15 @@ import { animate, inView, spring, stagger } from 'motion';
   var accountSignedOut = document.getElementById("accountSignedOut");
   var accountSignedIn = document.getElementById("accountSignedIn");
   var accountEmail = document.getElementById("accountEmail");
-  var tabSignIn = document.getElementById("tabSignIn");
-  var tabSignUp = document.getElementById("tabSignUp");
+  var authToggleBtn = document.getElementById("authToggleBtn");
+  var authTitle = document.getElementById("authTitle");
   var signInForm = document.getElementById("signInForm");
   var signUpForm = document.getElementById("signUpForm");
   var signInError = document.getElementById("signInError");
   var signUpError = document.getElementById("signUpError");
   var signOutBtn = document.getElementById("signOutBtn");
+  
+  var isSignIn = true;
 
   function openAccount() { closeCart(); accountDrawer.hidden = false; animate(accountDrawer.querySelector(".modal"), { opacity: [0, 1], y: [20, 0], scale: [0.95, 1] }, { duration: 0.4, easing: spring() }); animate(accountDrawer, { backgroundColor: ["rgba(0,0,0,0)", "rgba(33,28,22,0.95)"] }, { duration: 0.4 }); }
   function closeAccount() { animate(accountDrawer.querySelector(".modal"), { opacity: 0, scale: 0.95, y: 10 }, { duration: 0.2 }).finished.then(() => { accountDrawer.hidden = true; }); animate(accountDrawer, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 }); }
@@ -452,13 +454,19 @@ import { animate, inView, spring, stagger } from 'motion';
     if (e.target === accountDrawer) closeAccount();
   });
 
-  tabSignIn.addEventListener("click", function () {
-    tabSignIn.classList.add("active"); tabSignUp.classList.remove("active");
-    signInForm.hidden = false; signUpForm.hidden = true;
-  });
-  tabSignUp.addEventListener("click", function () {
-    tabSignUp.classList.add("active"); tabSignIn.classList.remove("active");
-    signUpForm.hidden = false; signInForm.hidden = true;
+  authToggleBtn.addEventListener("click", function () {
+    isSignIn = !isSignIn;
+    if (isSignIn) {
+      authTitle.innerText = "Sign In";
+      signInForm.hidden = false;
+      signUpForm.hidden = true;
+      authToggleBtn.innerText = "Create an account";
+    } else {
+      authTitle.innerText = "Create Account";
+      signUpForm.hidden = false;
+      signInForm.hidden = true;
+      authToggleBtn.innerText = "Already have an account? Sign in";
+    }
   });
 
   function showSignedIn(user) {
