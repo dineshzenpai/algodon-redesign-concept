@@ -1,3 +1,5 @@
+import { animate, inView, spring, stagger } from 'motion';
+
 (function() {
   "use strict";
 "use strict";
@@ -96,11 +98,11 @@
   var sizeGuideClose = document.getElementById("sizeGuideClose");
   sizeGuideLink.addEventListener("click", function (e) {
     e.preventDefault();
-    sizeGuideModal.hidden = false;
+    sizeGuideModal.hidden = false; animate(sizeGuideModal.querySelector(".modal"), { opacity: [0, 1], scale: [0.95, 1] }, { duration: 0.4, easing: spring() }); animate(sizeGuideModal, { backgroundColor: ["rgba(0,0,0,0)", "rgba(33,28,22,0.95)"] }, { duration: 0.4 });
   });
-  sizeGuideClose.addEventListener("click", function () { sizeGuideModal.hidden = true; });
+  sizeGuideClose.addEventListener("click", function () { animate(sizeGuideModal.querySelector(".modal"), { opacity: 0, scale: 0.95 }, { duration: 0.2 }).finished.then(() => { sizeGuideModal.hidden = true; }); animate(sizeGuideModal, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 }); });
   sizeGuideModal.addEventListener("click", function (e) {
-    if (e.target === sizeGuideModal) sizeGuideModal.hidden = true;
+    if (e.target === sizeGuideModal) animate(sizeGuideModal.querySelector(".modal"), { opacity: 0, scale: 0.95 }, { duration: 0.2 }).finished.then(() => { sizeGuideModal.hidden = true; }); animate(sizeGuideModal, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 });
   });
 
 
@@ -442,8 +444,8 @@
   var signUpError = document.getElementById("signUpError");
   var signOutBtn = document.getElementById("signOutBtn");
 
-  function openAccount() { closeCart(); accountDrawer.hidden = false; }
-  function closeAccount() { accountDrawer.hidden = true; }
+  function openAccount() { closeCart(); accountDrawer.hidden = false; animate(accountDrawer.querySelector(".modal"), { opacity: [0, 1], y: [20, 0], scale: [0.95, 1] }, { duration: 0.4, easing: spring() }); animate(accountDrawer, { backgroundColor: ["rgba(0,0,0,0)", "rgba(33,28,22,0.95)"] }, { duration: 0.4 }); }
+  function closeAccount() { animate(accountDrawer.querySelector(".modal"), { opacity: 0, scale: 0.95, y: 10 }, { duration: 0.2 }).finished.then(() => { accountDrawer.hidden = true; }); animate(accountDrawer, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 }); }
   accountToggle.addEventListener("click", openAccount);
   accountClose.addEventListener("click", closeAccount);
   accountDrawer.addEventListener("click", function (e) {
@@ -547,7 +549,7 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       closeNav(); closeCart(); closeSearch(); closeAccount();
-      sizeGuideModal.hidden = true;
+      animate(sizeGuideModal.querySelector(".modal"), { opacity: 0, scale: 0.95 }, { duration: 0.2 }).finished.then(() => { sizeGuideModal.hidden = true; }); animate(sizeGuideModal, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 });
       scrim.hidden = true;
     }
   });
@@ -643,3 +645,36 @@
 
   renderCart();
 })();
+
+/* ---------- motion animations ---------- */
+  // 1. Hero text animation
+  animate(
+    ".hero-copy h1, .hero-copy .eyebrow, .hero-copy p, .hero-actions", 
+    { opacity: [0, 1], y: [30, 0] },
+    { delay: stagger(0.15), duration: 0.8, easing: [0.22, 1, 0.36, 1] }
+  );
+
+  // 2. Fade up sections on scroll
+  inView(".editorial-content", (info) => {
+    animate(info.target, { opacity: [0, 1], y: [40, 0] }, { duration: 0.8, easing: [0.22, 1, 0.36, 1] });
+  });
+
+  inView(".product-card", (info) => {
+    animate(info.target, { opacity: [0, 1], y: [20, 0] }, { duration: 0.6, easing: "ease-out" });
+  });
+  
+  // 3. Stagger story images
+  inView(".story-grid", (info) => {
+    animate(".story-item", { opacity: [0, 1], scale: [0.95, 1] }, { delay: stagger(0.1), duration: 0.8 });
+  });
+
+// Hijack the modal toggles to add animations
+const originalOpenCart = openCart;
+const originalCloseCart = closeCart;
+const originalOpenAccount = openAccount;
+const originalCloseAccount = closeAccount;
+const originalOpenSize = function() { sizeGuideModal.hidden = false; animate(sizeGuideModal.querySelector(".modal"), { opacity: [0, 1], scale: [0.95, 1] }, { duration: 0.4, easing: spring() }); animate(sizeGuideModal, { backgroundColor: ["rgba(0,0,0,0)", "rgba(33,28,22,0.95)"] }, { duration: 0.4 }); };
+const originalCloseSize = function() { animate(sizeGuideModal.querySelector(".modal"), { opacity: 0, scale: 0.95 }, { duration: 0.2 }).finished.then(() => { sizeGuideModal.hidden = true; }); animate(sizeGuideModal, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 }); };
+
+// We need to re-assign or override the toggles. Wait, they are local functions in main.js.
+// It's easier to just animate the modals directly if they are DOM elements.
