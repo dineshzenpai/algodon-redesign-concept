@@ -443,6 +443,7 @@ import { animate, inView, spring, stagger } from 'motion';
   var signInError = document.getElementById("signInError");
   var signUpError = document.getElementById("signUpError");
   var signOutBtn = document.getElementById("signOutBtn");
+  var googleSignInBtn = document.getElementById("googleSignInBtn");
   
   var isSignIn = true;
 
@@ -466,6 +467,23 @@ import { animate, inView, spring, stagger } from 'motion';
       signUpForm.hidden = false;
       signInForm.hidden = true;
       authToggleBtn.innerText = "Already have an account? Sign in";
+    }
+  });
+
+  googleSignInBtn.addEventListener("click", async function () {
+    if (!sb) {
+      signInError.textContent = "Supabase not initialized.";
+      return;
+    }
+    const { data, error } = await sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: window.location.origin
+      }
+    });
+    if (error) {
+      console.error('Google Sign-In Error:', error.message);
+      signInError.textContent = "Google Sign-In failed.";
     }
   });
 
