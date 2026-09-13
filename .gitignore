@@ -1,0 +1,7 @@
+.env
+js/config.js
+node_modules/
+client/node_modules/
+*.log
+.claude/
+*.py
