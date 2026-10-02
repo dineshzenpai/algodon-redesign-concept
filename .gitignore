@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 js/config.js
 node_modules/
 client/node_modules/

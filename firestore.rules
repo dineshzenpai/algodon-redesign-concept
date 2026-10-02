@@ -1,0 +1,78 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isAdmin() { return signedIn() && request.auth.token.role == 'admin'; }
+    function owns(uid) { return signedIn() && request.auth.uid == uid; }
+
+    match /users/{uid} {
+      function validProfile(data) {
+        return data.name is string && data.name.size() <= 200
+          && data.email is string && data.email.size() <= 320
+          && data.photoURL is string && data.photoURL.size() <= 2048
+          && data.phone is string && data.phone.size() <= 30;
+      }
+      allow read: if owns(uid) || isAdmin();
+      allow create: if owns(uid)
+        && request.resource.data.role == 'customer'
+        && validProfile(request.resource.data)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.lastLoginAt == request.time
+        && request.resource.data.keys().hasOnly(['name', 'email', 'photoURL', 'phone', 'role', 'createdAt', 'lastLoginAt']);
+      allow update: if owns(uid)
+        && request.resource.data.role == resource.data.role
+        && validProfile(request.resource.data)
+        && request.resource.data.lastLoginAt == request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'email', 'photoURL', 'phone', 'lastLoginAt']);
+      allow delete: if isAdmin();
+
+      match /cart/{itemId} {
+        allow read, delete: if owns(uid);
+        allow create, update: if owns(uid)
+          && request.resource.data.keys().hasOnly(['id', 'productId', 'name', 'img', 'size', 'qty', 'price'])
+          && request.resource.data.qty is int
+          && request.resource.data.qty > 0 && request.resource.data.qty <= 100
+          && request.resource.data.price is number && request.resource.data.price >= 0;
+      }
+      match /wishlist/{itemId} {
+        allow read, delete: if owns(uid);
+        allow create, update: if owns(uid)
+          && request.resource.data.keys().hasOnly(['productId', 'name', 'image', 'createdAt'])
+          && request.resource.data.productId is string;
+      }
+      match /orders/{orderId} {
+        allow read: if owns(uid) || isAdmin();
+        allow create: if owns(uid)
+          && request.resource.data.keys().hasOnly(['orderId', 'status', 'total', 'createdAt'])
+          && request.resource.data.orderId == orderId
+          && request.resource.data.total is number && request.resource.data.total >= 0;
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /newsletter_signups/{signupId} {
+      allow create: if request.resource.data.keys().hasOnly(['email', 'createdAt'])
+        && request.resource.data.email is string
+        && request.resource.data.email.size() <= 320
+        && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$');
+      allow read, update, delete: if isAdmin();
+    }
+    match /coupons/{couponId} {
+      allow read, write: if isAdmin();
+    }
+    match /orders/{orderId} {
+      allow read, write: if isAdmin();
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

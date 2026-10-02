@@ -22,12 +22,18 @@
   <a href="#" class="wordmark">ALGODON<span class="sub">ORGANIC</span></a>
   <nav class="icons">
     <button class="icon-btn" id="searchToggle" aria-label="Search">Search</button>
-    <button class="icon-btn" id="accountToggle" aria-label="Account">Account</button>
+    <div class="account-nav">
+      <button class="icon-btn" id="accountToggle" aria-label="Account" aria-haspopup="true" aria-expanded="false"><img id="accountAvatar" alt="" hidden><span id="accountNavLabel">Account</span></button>
+      <div class="account-menu" id="accountMenu" hidden>
+        <a href="/orders">Orders</a><a href="/wishlist">Wishlist</a><button type="button" id="navLogoutBtn">Logout</button>
+      </div>
+    </div>
     <button class="icon-btn" id="cartToggle" aria-label="Open cart">Cart<span id="cartCount">0</span></button>
   </nav>
 </header>
 
 <div class="scrim" id="scrim" hidden></div>
+<div id="authToast" class="auth-toast" role="status" aria-live="polite" hidden></div>
 
 <div class="search-overlay" id="searchOverlay" hidden>
   <div class="search-overlay-head">
@@ -49,6 +55,12 @@
 
   <div class="cart-foot">
     <div class="cart-subtotal"><span>Subtotal</span><span id="cartSubtotal">Rs. 0</span></div>
+    <div style="display:flex; gap:8px; margin:12px 0;">
+      <input id="couponCode" aria-label="Coupon code" placeholder="Coupon code" style="flex:1; min-width:0; padding:10px; border:1px solid var(--line); background:var(--surface); color:var(--ink);" />
+      <button class="btn btn-ghost" type="button" id="applyCouponBtn">Apply</button>
+    </div>
+    <p id="couponMessage" class="cart-note" aria-live="polite" hidden></p>
+    <div class="cart-subtotal" id="cartDiscountRow" hidden><span>Discount</span><span id="cartDiscount">− Rs. 0</span></div>
     <button class="btn btn-solid" style="width:100%; justify-content:center;" id="checkoutBtn">Checkout</button>
     <p class="cart-note" id="cartNote">Concept preview — no real payment, but your order and shipping details are saved to a live database.</p>
     <button class="btn btn-ghost" id="downloadInvoiceBtn" style="width:100%; justify-content:center; margin-top:10px; color:var(--ink); border-color:var(--line-strong);" hidden>Download Invoice (PDF)</button>
@@ -67,7 +79,7 @@
 
     <!-- Right side: Forms -->
     <div style="flex: 1; display: flex; flex-direction: column; padding: 48px 40px; overflow-y: auto;">
-      <div class="account-body" id="accountSignedOut" style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
+      <div class="account-body" id="accountSignedOut" hidden style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
         <h2 id="authTitle" style="text-align: center; margin-bottom: 24px; font-family: 'Fraunces', serif; font-size: 2rem; font-weight: 300;">Sign In</h2>
 
         <button type="button" id="googleSignInBtn" class="btn btn-ghost" style="width:100%; justify-content:center; margin-bottom:16px; border-color:var(--line-strong); display:flex; gap:10px; align-items:center;">
@@ -125,6 +137,7 @@
       <div class="account-body" id="accountSignedIn" hidden style="height: 100%;">
         <p style="font-size: 0.72rem; letter-spacing: 0.1em; color: var(--ink-soft); margin: 0; text-transform: uppercase;">Signed in as</p>
         <p id="accountEmail" style="font-weight: 700; font-size: 0.95rem; margin-bottom: 16px;"></p>
+        <section id="accountOrders" hidden aria-live="polite"><h3 id="accountRouteTitle">Your orders</h3><div id="accountRouteContent"></div></section>
         
         <form class="checkout-form" id="checkoutForm" style="border: none; padding: 0;">
           <h4 style="margin-top:0;">Shipping Details</h4>

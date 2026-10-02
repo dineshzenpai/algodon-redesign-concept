@@ -7,6 +7,9 @@ import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { env } from './config/env.js';
+import { adminRouter } from './admin/routes.js';
+import { publicRouter } from './admin/public.js';
+import { requireFirebaseAuth, requireFirebaseAdmin } from './firebase/admin.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -18,7 +21,7 @@ app.use(helmet({
   contentSecurityPolicy: false, // disabled for local dev/serving frontend
 }));
 app.use(cors({ origin: env.clientUrl }));
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 app.use(cookieParser());
 app.use(morgan('dev'));
 
@@ -32,6 +35,51 @@ app.use('/api', limiter);
 // API Routes
 app.get('/api/health', (req, res) => {
   res.json({ status: 'API is running' });
+});
+
+// Firebase web keys are public by design. Only the six browser config values
+// leave the server; service account credentials stay in firebase-admin.
+app.get('/api/firebase-config', (req, res) => {
+  const f = env.firebase;
+  const config = [
+    ['FIREBASE_API_KEY', f.apiKey],
+    ['FIREBASE_AUTH_DOMAIN', f.authDomain],
+    ['FIREBASE_PROJECT_ID', f.projectId],
+    ['FIREBASE_STORAGE_BUCKET', f.storageBucket],
+    ['FIREBASE_MESSAGING_SENDER_ID', f.messagingSenderId],
+    ['FIREBASE_APP_ID', f.appId]
+  ];
+  const missing = config.filter(([, value]) => !value).map(([name]) => name);
+  if (missing.length) return res.status(503).json({ error: 'Firebase web app configuration is incomplete.', missing });
+  res.setHeader('Cache-Control', 'public, max-age=300');
+  res.json({ apiKey: f.apiKey, authDomain: f.authDomain, projectId: f.projectId,
+    storageBucket: f.storageBucket, messagingSenderId: f.messagingSenderId, appId: f.appId });
+});
+
+// A claim-protected namespace is available to Firebase-authenticated admin
+// APIs. The established /api/admin cookie flow stays intact for the current panel.
+app.get('/api/firebase-admin/whoami', requireFirebaseAuth, requireFirebaseAdmin, (req, res) => {
+  res.json({ uid: req.user.uid, email: req.user.email, admin: true });
+});
+
+app.use('/api', publicRouter);
+app.use('/api/admin', adminRouter);
+
+app.get(['/admin', '/admin/'], (req, res) => {
+  res.setHeader('Content-Security-Policy', [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' https://fonts.gstatic.com data:",
+    "img-src 'self' data: blob: https:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "form-action 'self'"
+  ].join('; '));
+  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
+  res.sendFile(path.join(__dirname, '..', 'admin.html'));
 });
 
 
@@ -56,23 +104,12 @@ const invoiceLimiter = rateLimit({
   max: 10,
 });
 
-// Generate Ethereal test account for SMTP (For concept/dev use)
-let transporter;
-nodemailer.createTestAccount((err, account) => {
-    if (err) {
-        console.error('Failed to create a testing account. ' + err.message);
-        return process.exit(1);
-    }
-    transporter = nodemailer.createTransport({
-        host: account.smtp.host,
-        port: account.smtp.port,
-        secure: account.smtp.secure,
-        auth: {
-            user: account.user,
-            pass: account.pass
-        }
-    });
-});
+const transporter = process.env.SMTP_HOST ? nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT || 587),
+  secure: process.env.SMTP_SECURE === 'true',
+  auth: process.env.SMTP_USER ? { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD } : undefined
+}) : null;
 
 function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, (c) => ({
@@ -86,12 +123,13 @@ app.post('/api/invoice', invoiceLimiter, async (req, res) => {
         return res.status(400).json({ error: 'Invalid invoice request' });
     }
     try {
+        if (!transporter) return res.status(503).json({ error: 'Invoice email is not configured.' });
         const { email, name, invoiceNo, subtotal, cart } = parsed.data;
 
         let itemsHtml = cart.map(item => `<li>${escapeHtml(item.name)} (Size: ${escapeHtml(item.size)}) x${item.qty} - Rs. ${(item.qty * item.price).toLocaleString('en-IN')}</li>`).join('');
         
         let mailOptions = {
-            from: '"Algodon Organic" <orders@algodonorganic.com>',
+            from: process.env.SMTP_FROM || process.env.SMTP_USER || 'orders@algodonorganic.com',
             to: email,
             subject: `Invoice ${invoiceNo} from Algodon Organic`,
             html: `<div style="font-family: sans-serif; color: #362e26;">
@@ -127,7 +165,11 @@ app.use((req, res, next) => {
 
 // Global Error Handler
 app.use((err, req, res, next) => {
-  console.error('[app] Error:', err.stack);
+  if (err && err.name === 'MulterError') return res.status(400).json({ error: 'Image upload must be under 10 MB with no more than 8 files.' });
+  if (err && err.message === 'Upload a JPEG, PNG, WebP, or AVIF image.') return res.status(400).json({ error: err.message });
+  if (err && err.type === 'entity.parse.failed') return res.status(400).json({ error: 'Request body must be valid JSON.' });
+  if (err && err.type === 'entity.too.large') return res.status(413).json({ error: 'Request body is too large.' });
+  console.error('[app] Error:', err && err.stack);
   res.status(500).json({ error: 'Internal Server Error' });
 });
 
