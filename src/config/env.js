@@ -26,9 +26,9 @@ const envSchema = z.object({
   PORT: z.string().default('3000'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   CLIENT_URL: z.string().default('http://localhost:3000'),
-  SUPABASE_URL: z.string().url(),
-  SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
-  SUPABASE_SECRET_KEY: z.string().min(1),
+  SUPABASE_URL: z.string().url().optional().or(z.literal('')),
+  SUPABASE_PUBLISHABLE_KEY: z.string().optional().or(z.literal('')),
+  SUPABASE_SECRET_KEY: z.string().optional().or(z.literal('')),
   DATABASE_URL: z.string().optional(),
   FIREBASE_API_KEY: z.string().optional(),
   FIREBASE_AUTH_DOMAIN: z.string().optional(),
@@ -38,7 +38,10 @@ const envSchema = z.object({
   FIREBASE_APP_ID: z.string().optional(),
   FIREBASE_CLIENT_EMAIL: z.string().optional(),
   FIREBASE_PRIVATE_KEY: z.string().optional()
-});
+}).refine(
+  (data) => data.NODE_ENV !== 'production' || (data.SUPABASE_URL && data.SUPABASE_PUBLISHABLE_KEY && data.SUPABASE_SECRET_KEY),
+  { message: 'SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, and SUPABASE_SECRET_KEY are required in production' }
+);
 
 const _env = envSchema.safeParse(process.env);
 
@@ -52,10 +55,10 @@ export const env = {
   nodeEnv: _env.data.NODE_ENV,
   clientUrl: _env.data.CLIENT_URL,
   supabase: {
-    url: _env.data.SUPABASE_URL,
-    anonKey: _env.data.SUPABASE_PUBLISHABLE_KEY,
-    serviceRoleKey: _env.data.SUPABASE_SECRET_KEY,
-    dbUrl: _env.data.DATABASE_URL
+    url: _env.data.SUPABASE_URL || '',
+    anonKey: _env.data.SUPABASE_PUBLISHABLE_KEY || '',
+    serviceRoleKey: _env.data.SUPABASE_SECRET_KEY || '',
+    dbUrl: _env.data.DATABASE_URL || ''
   },
   firebase: {
     apiKey: _env.data.FIREBASE_API_KEY,

@@ -79,7 +79,7 @@ app.get(['/admin', '/admin/'], (req, res) => {
     "form-action 'self'"
   ].join('; '));
   res.setHeader('X-Robots-Tag', 'noindex, nofollow');
-  res.sendFile(path.join(__dirname, '..', 'admin.html'));
+  res.sendFile(path.join(__dirname, '..', 'admin.html'), { dotfiles: 'allow' });
 });
 
 
@@ -156,8 +156,8 @@ app.use(express.static(path.join(__dirname, '..')));
 
 // Fallback to index.html for SPA routing (if any)
 app.use((req, res, next) => {
-  if (req.method === 'GET' && req.accepts('html')) {
-    res.sendFile(path.join(__dirname, '..', 'index.html'));
+  if ((req.method === 'GET' || req.method === 'HEAD') && req.accepts('html')) {
+    res.sendFile(path.join(__dirname, '..', 'index.html'), { dotfiles: 'allow' });
   } else {
     next();
   }

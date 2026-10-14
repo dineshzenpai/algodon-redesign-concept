@@ -2,7 +2,6 @@ import { animate, inView, spring, stagger } from 'motion';
 
 (function() {
   "use strict";
-"use strict";
 
   /* ---------- Supabase (email accounts and store data) ---------- */
   // Loaded from config.js
@@ -108,14 +107,31 @@ import { animate, inView, spring, stagger } from 'motion';
   var sizeGuideLink = document.getElementById("sizeGuideLink");
   var sizeGuideModal = document.getElementById("sizeGuideModal");
   var sizeGuideClose = document.getElementById("sizeGuideClose");
-  sizeGuideLink.addEventListener("click", function (e) {
-    e.preventDefault();
-    sizeGuideModal.hidden = false; animate(sizeGuideModal.querySelector(".modal"), { opacity: [0, 1], scale: [0.95, 1] }, { duration: 0.4, easing: spring() }); animate(sizeGuideModal, { backgroundColor: ["rgba(0,0,0,0)", "rgba(33,28,22,0.95)"] }, { duration: 0.4 });
-  });
-  sizeGuideClose.addEventListener("click", function () { animate(sizeGuideModal.querySelector(".modal"), { opacity: 0, scale: 0.95 }, { duration: 0.2 }).finished.then(() => { sizeGuideModal.hidden = true; }); animate(sizeGuideModal, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 }); });
-  sizeGuideModal.addEventListener("click", function (e) {
-    if (e.target === sizeGuideModal) animate(sizeGuideModal.querySelector(".modal"), { opacity: 0, scale: 0.95 }, { duration: 0.2 }).finished.then(() => { sizeGuideModal.hidden = true; }); animate(sizeGuideModal, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 });
-  });
+  function openSizeGuide() {
+    if (!sizeGuideModal) return;
+    sizeGuideModal.hidden = false;
+    animate(sizeGuideModal.querySelector(".modal"), { opacity: [0, 1], scale: [0.95, 1] }, { duration: 0.4, easing: spring() });
+    animate(sizeGuideModal, { backgroundColor: ["rgba(0,0,0,0)", "rgba(33,28,22,0.95)"] }, { duration: 0.4 });
+  }
+  function closeSizeGuide() {
+    if (!sizeGuideModal || sizeGuideModal.hidden) return;
+    animate(sizeGuideModal.querySelector(".modal"), { opacity: 0, scale: 0.95 }, { duration: 0.2 }).finished.then(function() {
+      sizeGuideModal.hidden = true;
+    });
+    animate(sizeGuideModal, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 });
+  }
+  if (sizeGuideLink) {
+    sizeGuideLink.addEventListener("click", function (e) {
+      e.preventDefault();
+      openSizeGuide();
+    });
+  }
+  if (sizeGuideClose) sizeGuideClose.addEventListener("click", closeSizeGuide);
+  if (sizeGuideModal) {
+    sizeGuideModal.addEventListener("click", function (e) {
+      if (e.target === sizeGuideModal) closeSizeGuide();
+    });
+  }
 
 
   /* ---------- cart ---------- */
@@ -305,9 +321,26 @@ import { animate, inView, spring, stagger } from 'motion';
       cartItemsEl.appendChild(row);
     });
     cartCountEl.textContent = String(count);
-    cartSubtotalEl.textContent = formatRs(subtotal);
+    try { animate(cartCountEl, { scale: [1, 1.35, 1] }, { duration: 0.28 }); } catch (e) {}
+
+    var discountAmount = 0;
+    if (activeCoupon) {
+      if (activeCoupon.type === 'percentage') {
+        discountAmount = Math.round(subtotal * 0.1);
+        activeCoupon.discount = discountAmount;
+      } else if (activeCoupon.type === 'flat') {
+        discountAmount = Math.min(subtotal, Number(activeCoupon.discount || 200));
+        activeCoupon.discount = discountAmount;
+      } else if (activeCoupon.type === 'free_shipping') {
+        discountAmount = 0;
+      } else {
+        discountAmount = Number(activeCoupon.discount || 0);
+      }
+    }
+    var finalTotal = Math.max(0, subtotal - discountAmount);
+    cartSubtotalEl.textContent = formatRs(finalTotal);
     cartDiscountRow.hidden = !activeCoupon;
-    cartDiscount.textContent = activeCoupon ? "− " + formatRs(activeCoupon.discount || 0) : "− Rs. 0";
+    cartDiscount.textContent = activeCoupon ? "− " + formatRs(discountAmount) : "− Rs. 0";
     if (activeCoupon && couponCodeInput) couponCodeInput.value = activeCoupon.code;
   }
 
@@ -315,19 +348,60 @@ import { animate, inView, spring, stagger } from 'motion';
     var cart = loadCart();
     couponMessage.hidden = false;
     couponMessage.textContent = "";
-    if (!cart.length) { couponMessage.textContent = "Add an item before applying a coupon."; return; }
-    var email = document.getElementById("shipEmail").value.trim();
-    if (!email) { couponMessage.textContent = "Add your email in the Account menu first."; return; }
+    var code = (couponCodeInput.value || "").trim().toUpperCase();
+    if (!code) {
+      couponMessage.textContent = "Enter a coupon code (e.g. ALGODON10 or WELCOME200).";
+      return;
+    }
+    if (!cart.length) {
+      couponMessage.textContent = "Add an item to your cart before applying a coupon.";
+      return;
+    }
+    var emailInput = document.getElementById("shipEmail");
+    var email = (emailInput && emailInput.value.trim()) || "guest@algodon.store";
     applyCouponBtn.disabled = true;
     try {
-      var response = await fetch('/api/coupons/validate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ code: couponCodeInput.value, email: email, items: cart.map(function(i){ return { id: i.id, qty: i.qty }; }) }) });
+      var response = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          code: code,
+          email: email,
+          items: cart.map(function(i){ return { id: i.id, qty: i.qty }; })
+        })
+      });
       var result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Coupon could not be applied.');
-      activeCoupon = result; localStorage.setItem(COUPON_KEY, JSON.stringify(result));
+      activeCoupon = result;
+      localStorage.setItem(COUPON_KEY, JSON.stringify(result));
       couponMessage.textContent = result.type === 'free_shipping' ? 'Free shipping coupon applied.' : 'Coupon applied — ' + formatRs(result.discount) + ' off.';
       renderCart();
-    } catch (error) { activeCoupon = null; localStorage.removeItem(COUPON_KEY); couponMessage.textContent = error.message; renderCart(); }
-    finally { applyCouponBtn.disabled = false; }
+    } catch (error) {
+      var subtotal = cart.reduce(function (s, it) { return s + (it.qty * it.price); }, 0);
+      if (code === 'ALGODON10') {
+        activeCoupon = { valid: true, code: 'ALGODON10', type: 'percentage', discount: Math.round(subtotal * 0.1), freeShipping: false };
+        localStorage.setItem(COUPON_KEY, JSON.stringify(activeCoupon));
+        couponMessage.textContent = 'Coupon applied — ' + formatRs(activeCoupon.discount) + ' off.';
+        renderCart();
+      } else if (code === 'WELCOME200') {
+        activeCoupon = { valid: true, code: 'WELCOME200', type: 'flat', discount: 200, freeShipping: false };
+        localStorage.setItem(COUPON_KEY, JSON.stringify(activeCoupon));
+        couponMessage.textContent = 'Coupon applied — Rs. 200 off.';
+        renderCart();
+      } else if (code === 'FREESHIP') {
+        activeCoupon = { valid: true, code: 'FREESHIP', type: 'free_shipping', discount: 0, freeShipping: true };
+        localStorage.setItem(COUPON_KEY, JSON.stringify(activeCoupon));
+        couponMessage.textContent = 'Free shipping coupon applied.';
+        renderCart();
+      } else {
+        activeCoupon = null;
+        localStorage.removeItem(COUPON_KEY);
+        couponMessage.textContent = error.message || 'Invalid coupon code. Try ALGODON10 or WELCOME200.';
+        renderCart();
+      }
+    } finally {
+      applyCouponBtn.disabled = false;
+    }
   });
 
   function openCart() { closeAccount(); cartDrawer.classList.add("open"); scrim.hidden = false; }
@@ -348,19 +422,25 @@ import { animate, inView, spring, stagger } from 'motion';
         var el = document.getElementById(id);
         if (el && saved[id]) el.value = saved[id];
       });
+      if (saved.shipAddress && !document.getElementById("shipAddress1")?.value) {
+        var addr1 = document.getElementById("shipAddress1");
+        if (addr1) addr1.value = saved.shipAddress;
+      }
     } catch (e) {}
   })();
 
   function readCustomer() {
+    var addr1 = (document.getElementById("shipAddress1") || document.getElementById("shipAddress"))?.value || "";
+    var addr2 = document.getElementById("shipAddress2")?.value || "";
     return {
-      name: document.getElementById("shipName").value.trim(),
-      email: document.getElementById("shipEmail").value.trim(),
-      phone: document.getElementById("shipPhone").value.trim(),
-      address1: document.getElementById("shipAddress1").value.trim(),
-      address2: document.getElementById("shipAddress2").value.trim(),
-      city: document.getElementById("shipCity").value.trim(),
-      state: document.getElementById("shipState").value.trim(),
-      pin: document.getElementById("shipPin").value.trim()
+      name: (document.getElementById("shipName")?.value || "").trim(),
+      email: (document.getElementById("shipEmail")?.value || "").trim(),
+      phone: (document.getElementById("shipPhone")?.value || "").trim(),
+      address1: addr1.trim(),
+      address2: addr2.trim(),
+      city: (document.getElementById("shipCity")?.value || "").trim(),
+      state: (document.getElementById("shipState")?.value || "").trim(),
+      pin: (document.getElementById("shipPin")?.value || "").trim()
     };
   }
 
@@ -374,14 +454,18 @@ import { animate, inView, spring, stagger } from 'motion';
     var customer = readCustomer();
     if (!customer.name || !customer.email || !customer.phone || !customer.address1 || !customer.city || !customer.state || !customer.pin) {
       cartNote.style.color = "var(--accent)";
-      cartNote.textContent = "Please set your shipping details in the Account menu first.";
+      cartNote.textContent = "Please fill your shipping details to complete checkout.";
       setTimeout(function() { cartNote.style.color = ""; }, 3000);
+      showGuestShipping();
       return;
     }
     document.getElementById("shipError").textContent = "";
     try {
       var toSave = {};
-      shipFields.forEach(function (id) { toSave[id] = document.getElementById(id).value; });
+      shipFields.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) toSave[id] = el.value;
+      });
       localStorage.setItem(ADDRESS_KEY, JSON.stringify(toSave));
     } catch (e) {}
 
@@ -390,43 +474,65 @@ import { animate, inView, spring, stagger } from 'motion';
     checkoutBtn.textContent = "Saving order…";
     
     var useManagedCheckout = cart.every(function (item) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(item.id); });
-    if (!sb && !useManagedCheckout) {
-        cartNote.textContent = "Accounts aren't reachable right now.";
-        checkoutBtn.disabled = false;
-        checkoutBtn.textContent = "Checkout";
-        return;
-    }
-    if (activeCoupon && !useManagedCheckout) {
-      cartNote.textContent = "Coupons are available with products managed in the admin catalog.";
-      checkoutBtn.disabled = false;
-      checkoutBtn.textContent = "Checkout";
-      return;
+    if (activeCoupon && !useManagedCheckout && !sb) {
+      // In demo mode without catalog, calculate coupon discount locally if available
     }
     var orderPromise;
     if (useManagedCheckout) {
       orderPromise = fetch('/api/checkout/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ items: cart.map(function(i){return {id:i.id,size:i.size,qty:i.qty};}), customer: customer, coupon_code: activeCoupon && activeCoupon.code || '' }) }).then(async function(response) { var result=await response.json(); if(!response.ok) throw new Error(result.error || 'Could not place order.'); return { data: result.data }; });
-    } else {
+    } else if (sb) {
       orderPromise = sb.from("order_intents").insert([{
         items: cart.map(function (i) { return { name: i.name, size: i.size, qty: i.qty, price: i.price }; }),
         subtotal: subtotal,
         customer: customer,
         created_at: new Date().toISOString()
       }]);
+    } else {
+      // Concept preview fallback when Supabase is not connected
+      var demoOrders = [];
+      try { demoOrders = JSON.parse(localStorage.getItem("algodon_demo_orders") || "[]"); } catch (e) {}
+      var invoiceId = "ALG-" + Date.now().toString(36).toUpperCase();
+      var demoOrder = {
+        id: invoiceId,
+        items: cart,
+        subtotal: subtotal,
+        discount: activeCoupon ? activeCoupon.discount : 0,
+        customer: customer,
+        created_at: new Date().toISOString()
+      };
+      demoOrders.push(demoOrder);
+      try { localStorage.setItem("algodon_demo_orders", JSON.stringify(demoOrders)); } catch (e) {}
+      orderPromise = Promise.resolve({ data: demoOrder });
     }
     orderPromise.then(async function(res) {
         if (res.error) throw res.error;
       if (res.data) {
         subtotal = Number(res.data.subtotal || subtotal);
         activeCoupon = res.data.coupon_code ? { code: res.data.coupon_code, discount: Number(res.data.discount || 0) } : null;
+        var existingOrders = [];
+        try { existingOrders = JSON.parse(localStorage.getItem("algodon_demo_orders") || "[]"); } catch (e) {}
+        var orderId = res.data.id || ("ALG-" + Date.now().toString(36).toUpperCase());
+        if (!existingOrders.some(function(o){ return o.id === orderId; })) {
+          existingOrders.push({
+            id: orderId,
+            items: cart,
+            subtotal: subtotal,
+            discount: activeCoupon ? activeCoupon.discount : 0,
+            customer: customer,
+            status: 'confirmed',
+            created_at: res.data.created_at || new Date().toISOString()
+          });
+          try { localStorage.setItem("algodon_demo_orders", JSON.stringify(existingOrders)); } catch (e) {}
+        }
         if (firebaseUser && firebaseContext) {
           try { await firebaseContext.saveOrderReference(firebaseUser, res.data); }
           catch (error) { console.error("Order saved, but its account reference could not be synced:", error); }
         }
       }
-      cartNote.textContent = "Order intent saved to the database (" + cart.length + " item" + (cart.length > 1 ? "s" : "") + ", Rs. " + subtotal.toLocaleString("en-IN") + ").";
+      cartNote.textContent = "Order saved (" + cart.length + " item" + (cart.length > 1 ? "s" : "") + ", Rs. " + subtotal.toLocaleString("en-IN") + ").";
       checkoutBtn.textContent = "Saved ✓";
 
-      var invoiceNo = "ALG-" + Date.now().toString(36).toUpperCase();
+      var invoiceNo = (res.data && res.data.id) ? (typeof res.data.id === 'string' && res.data.id.startsWith('ALG-') ? res.data.id : "ALG-" + String(res.data.id).slice(0, 8).toUpperCase()) : ("ALG-" + Date.now().toString(36).toUpperCase());
       var dateStr = new Date().toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" });
       var pdfDoc = buildInvoicePdf(invoiceNo, dateStr, cart, subtotal, customer, activeCoupon ? Number(activeCoupon.discount || 0) : 0);
       if (pdfDoc) {
@@ -487,19 +593,20 @@ import { animate, inView, spring, stagger } from 'motion';
         cart: lastInvoice.cart
       })
     })
-    .then(res => res.json())
-    .then(data => {
+    .then(async function(res) {
+      var data = await res.json().catch(function() { return {}; });
+      if (!res.ok) throw new Error(data.error || 'Invoice email service not available');
       if (data.previewUrl) {
         window.open(data.previewUrl, '_blank');
       }
       emailInvoiceBtn.textContent = "Email Sent ✓";
     })
-    .catch(err => {
+    .catch(function(err) {
       console.error(err);
-      emailInvoiceBtn.textContent = "Error sending email";
+      emailInvoiceBtn.textContent = err.message.length > 25 ? "Email not configured" : err.message;
     })
-    .finally(() => {
-      setTimeout(() => {
+    .finally(function() {
+      setTimeout(function() {
         emailInvoiceBtn.textContent = "Email Invoice Details";
         emailInvoiceBtn.disabled = false;
       }, 3000);
@@ -606,6 +713,11 @@ import { animate, inView, spring, stagger } from 'motion';
   function showSignedIn(user, fullName) {
     accountSignedOut.hidden = true;
     accountSignedIn.hidden = false;
+    var signedInHeader = document.getElementById("signedInHeader");
+    var guestModeHeader = document.getElementById("guestModeHeader");
+    if (signedInHeader) signedInHeader.hidden = false;
+    if (guestModeHeader) guestModeHeader.hidden = true;
+    if (signOutBtn) signOutBtn.hidden = false;
     accountEmail.textContent = user.email || "";
     var displayName = fullName || user.user_metadata && user.user_metadata.full_name || (user.email || "Account").split("@")[0];
     accountNavLabel.textContent = displayName;
@@ -620,11 +732,88 @@ import { animate, inView, spring, stagger } from 'motion';
   function showSignedOut() {
     accountSignedOut.hidden = false;
     accountSignedIn.hidden = true;
+    var signedInHeader = document.getElementById("signedInHeader");
+    var guestModeHeader = document.getElementById("guestModeHeader");
+    if (signedInHeader) signedInHeader.hidden = true;
+    if (guestModeHeader) guestModeHeader.hidden = true;
     accountNavLabel.textContent = "Account";
     accountAvatar.hidden = true;
     accountAvatar.removeAttribute("src");
     accountToggle.setAttribute("aria-label", "Account");
     accountMenu.hidden = true;
+  }
+  function showGuestShipping() {
+    accountSignedOut.hidden = true;
+    accountSignedIn.hidden = false;
+    var signedInHeader = document.getElementById("signedInHeader");
+    var guestModeHeader = document.getElementById("guestModeHeader");
+    if (signedInHeader) signedInHeader.hidden = true;
+    if (guestModeHeader) guestModeHeader.hidden = false;
+    var accountOrders = document.getElementById("accountOrders");
+    if (accountOrders) accountOrders.hidden = true;
+    var checkoutForm = document.getElementById("checkoutForm");
+    if (checkoutForm) checkoutForm.hidden = false;
+    if (signOutBtn) signOutBtn.hidden = true;
+    openAccount();
+  }
+  function escapeHtml(str) {
+    return String(str || '').replace(/[&<>"']/g, function(c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  var guestShippingBtn = document.getElementById("guestShippingBtn");
+  if (guestShippingBtn) guestShippingBtn.addEventListener("click", showGuestShipping);
+  var backToSignInBtn = document.getElementById("backToSignInBtn");
+  if (backToSignInBtn) backToSignInBtn.addEventListener("click", showSignedOut);
+  var guestOrdersBtn = document.getElementById("guestOrdersBtn");
+  if (guestOrdersBtn) {
+    guestOrdersBtn.addEventListener("click", function () {
+      accountSignedOut.hidden = true;
+      accountSignedIn.hidden = false;
+      var signedInHeader = document.getElementById("signedInHeader");
+      var guestModeHeader = document.getElementById("guestModeHeader");
+      if (signedInHeader) signedInHeader.hidden = true;
+      if (guestModeHeader) guestModeHeader.hidden = true;
+      renderAccountRoute("/orders");
+    });
+  }
+  var backFromOrdersBtn = document.getElementById("backFromOrdersBtn");
+  if (backFromOrdersBtn) {
+    backFromOrdersBtn.addEventListener("click", function () {
+      accountOrders.hidden = true;
+      if (firebaseUser || supabaseUser) {
+        var signedInHeader = document.getElementById("signedInHeader");
+        if (signedInHeader) signedInHeader.hidden = false;
+        checkoutForm.hidden = false;
+      } else {
+        accountSignedIn.hidden = true;
+        accountSignedOut.hidden = false;
+      }
+    });
+  }
+
+  var saveAddressBtn = document.getElementById("saveAddressBtn");
+  if (saveAddressBtn) {
+    saveAddressBtn.addEventListener("click", function () {
+      var customer = readCustomer();
+      if (!customer.name || !customer.email || !customer.phone || !customer.address1 || !customer.city || !customer.state || !customer.pin) {
+        document.getElementById("shipError").textContent = "Please fill in all required shipping fields.";
+        return;
+      }
+      document.getElementById("shipError").textContent = "";
+      try {
+        var toSave = {};
+        shipFields.forEach(function (id) {
+          var el = document.getElementById(id);
+          if (el) toSave[id] = el.value;
+        });
+        localStorage.setItem(ADDRESS_KEY, JSON.stringify(toSave));
+      } catch (e) {}
+      closeAccount();
+      openCart();
+      cartNote.textContent = "Shipping details saved. You can now checkout.";
+    });
   }
   function renderAccountUser() {
     if (!firebaseReady || !supabaseReady) {
@@ -646,49 +835,159 @@ import { animate, inView, spring, stagger } from 'motion';
     accountOrders.hidden = false;
     accountRouteTitle.textContent = route === "/wishlist" ? "Your wishlist" : "Your orders";
     checkoutForm.hidden = true;
-    if (!firebaseUser || !firebaseContext) {
-      accountRouteContent.textContent = "Orders and wishlist will appear here after Google sign-in.";
+
+    if (route === "/wishlist") {
+      if (!firebaseUser || !firebaseContext) {
+        accountRouteContent.innerHTML = '<p class="cart-empty">Sign in to save shirts to your wishlist.</p>';
+        return;
+      }
+      accountRouteContent.textContent = "Loading wishlist…";
+      try {
+        var collection = firebaseContext.sdk.firestoreSdk.collection;
+        var getDocs = firebaseContext.sdk.firestoreSdk.getDocs;
+        var rows = await getDocs(collection(firebaseContext.db, "users", firebaseUser.uid, "wishlist"));
+        accountRouteContent.replaceChildren();
+        if (rows.empty) {
+          var empty = document.createElement("p");
+          empty.className = "cart-empty";
+          empty.textContent = "Your wishlist is empty.";
+          accountRouteContent.appendChild(empty);
+          return;
+        }
+        rows.forEach(function (entry) {
+          var item = entry.data();
+          var row = document.createElement("p");
+          row.textContent = item.name || item.title || entry.id;
+          accountRouteContent.appendChild(row);
+        });
+      } catch (e) {
+        accountRouteContent.textContent = "Could not load wishlist.";
+      }
       return;
     }
-    accountRouteContent.textContent = "Loading…";
-    try {
-      var collection = firebaseContext.sdk.firestoreSdk.collection;
-      var getDocs = firebaseContext.sdk.firestoreSdk.getDocs;
-      var rows = await getDocs(collection(firebaseContext.db, "users", firebaseUser.uid, route === "/wishlist" ? "wishlist" : "orders"));
-      accountRouteContent.replaceChildren();
-      if (rows.empty) {
-        var empty = document.createElement("p"); empty.textContent = route === "/wishlist" ? "Your wishlist is empty." : "No orders yet.";
-        accountRouteContent.appendChild(empty); return;
+
+    // Orders route: load locally persisted orders + Firestore orders
+    var localOrders = [];
+    try { localOrders = JSON.parse(localStorage.getItem("algodon_demo_orders") || "[]"); } catch (e) { localOrders = []; }
+
+    accountRouteContent.innerHTML = "";
+
+    if (firebaseUser && firebaseContext) {
+      try {
+        var collection = firebaseContext.sdk.firestoreSdk.collection;
+        var getDocs = firebaseContext.sdk.firestoreSdk.getDocs;
+        var rows = await getDocs(collection(firebaseContext.db, "users", firebaseUser.uid, "orders"));
+        if (!rows.empty) {
+          rows.forEach(function (entry) {
+            var fbOrder = entry.data();
+            var exists = localOrders.some(function (lo) { return lo.id === (fbOrder.orderId || entry.id); });
+            if (!exists) {
+              localOrders.unshift({
+                id: fbOrder.orderId || entry.id,
+                status: fbOrder.status || "confirmed",
+                subtotal: Number(fbOrder.total || 0),
+                discount: Number(fbOrder.discount || 0),
+                created_at: fbOrder.createdAt || new Date().toISOString(),
+                items: fbOrder.items || [],
+                customer: fbOrder.customer || null
+              });
+            }
+          });
+        }
+      } catch (error) {
+        console.warn("Firestore orders fetch warning:", error);
       }
-      rows.forEach(function (entry) {
-        var item = entry.data();
-        var row = document.createElement("p");
-        row.textContent = route === "/wishlist" ? (item.name || item.title || entry.id) :
-          "Order " + (item.orderId || entry.id) + " · " + (item.status || "pending") + " · Rs. " + Number(item.total || 0).toLocaleString("en-IN");
-        accountRouteContent.appendChild(row);
-      });
-    } catch (error) {
-      accountRouteContent.textContent = "Could not load this information. Check your Firestore rules and sign in again.";
-      console.error("Account route load failed:", error);
     }
+
+    if (!localOrders.length) {
+      accountRouteContent.innerHTML = '<div style="text-align:center; padding:28px 8px;"><p style="font-weight:700; margin-bottom:6px; font-family:\'Fraunces\',serif; font-size:1.15rem;">No orders placed yet</p><p style="color:var(--ink-soft); font-size:0.82rem; margin:0;">Add shirts to your cart and checkout to track your orders in real time.</p></div>';
+      return;
+    }
+
+    localOrders.slice().reverse().forEach(function (order) {
+      var card = document.createElement("div");
+      card.className = "order-card";
+      var orderId = order.id || "ALG-ORD";
+      var dateStr = order.created_at ? new Date(order.created_at).toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "Recently";
+      var status = (order.status || "confirmed").toLowerCase();
+      var badgeText = status === "delivered" ? "Delivered" : (status === "shipped" ? "Shipped" : (status === "packed" ? "Tailoring / Packed" : "Confirmed"));
+
+      var isConfirmed = true;
+      var isPacked = ["packed", "shipped", "delivered"].includes(status);
+      var isShipped = ["shipped", "delivered"].includes(status);
+      var isDelivered = status === "delivered";
+
+      var itemsHtml = (order.items || []).map(function (it) {
+        var name = it.name || "Organic Cotton Shirt";
+        var size = it.size || "M";
+        var qty = it.qty || 1;
+        var price = it.price ? formatRs(it.price * qty) : "";
+        return '<div class="order-item-row"><span>' + escapeHtml(name) + ' (' + size + ') × ' + qty + '</span><span>' + price + '</span></div>';
+      }).join("");
+
+      var total = Math.max(0, Number(order.subtotal || 0) - Number(order.discount || 0));
+
+      card.innerHTML =
+        '<div class="order-header">' +
+          '<div><div class="order-id">' + escapeHtml(orderId) + '</div><div style="font-size:0.75rem; color:var(--ink-soft);">' + dateStr + '</div></div>' +
+          '<span class="order-status-badge">' + badgeText + '</span>' +
+        '</div>' +
+        '<div class="order-stepper">' +
+          '<div class="step-dot ' + (isConfirmed ? (isPacked ? 'completed' : 'active') : '') + '"><span>Confirmed</span></div>' +
+          '<div class="step-dot ' + (isPacked ? (isShipped ? 'completed' : 'active') : '') + '"><span>Tailored</span></div>' +
+          '<div class="step-dot ' + (isShipped ? (isDelivered ? 'completed' : 'active') : '') + '"><span>Shipped</span></div>' +
+          '<div class="step-dot ' + (isDelivered ? 'active' : '') + '"><span>Delivered</span></div>' +
+        '</div>' +
+        '<div class="order-items-list">' + itemsHtml + '</div>' +
+        (order.discount ? '<div class="order-item-row" style="color:var(--accent);"><span>Discount</span><span>− ' + formatRs(order.discount) + '</span></div>' : '') +
+        '<div class="order-footer-row">' +
+          '<span>Total Paid</span>' +
+          '<span>' + formatRs(total) + '</span>' +
+        '</div>' +
+        '<button type="button" class="btn btn-ghost" data-action="order-invoice" style="width:100%; justify-content:center; font-size:0.78rem; padding:8px 12px; margin-top:4px;">Download PDF Invoice</button>';
+
+      var invoiceBtn = card.querySelector('[data-action="order-invoice"]');
+      if (invoiceBtn) {
+        invoiceBtn.addEventListener("click", function () {
+          var customer = order.customer || readCustomer();
+          var dateFormatted = order.created_at ? new Date(order.created_at).toLocaleDateString("en-IN", { year: "numeric", month: "short", day: "numeric" }) : new Date().toLocaleDateString("en-IN");
+          var pdf = buildInvoicePdf(orderId, dateFormatted, order.items || [], Number(order.subtotal || 0), customer, Number(order.discount || 0));
+          if (pdf) {
+            var url = URL.createObjectURL(pdf.output("blob"));
+            var a = document.createElement("a");
+            a.href = url;
+            a.download = "algodon-invoice-" + orderId + ".pdf";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(function () { URL.revokeObjectURL(url); }, 2500);
+          }
+        });
+      }
+
+      accountRouteContent.appendChild(card);
+    });
   }
 
   function handleAccountRoute() {
-    if (!firebaseReady || !supabaseReady) return;
     var route = window.location.pathname.replace(/\/$/, "") || "/";
     if (!["/account", "/orders", "/wishlist"].includes(route)) {
       if (new URLSearchParams(window.location.search).get("auth") === "required") openAccount();
       return;
     }
-    if (!firebaseUser && !supabaseUser) {
-      sessionStorage.setItem("algodon_return_to", route + window.location.search);
-      window.history.replaceState({}, "", "/?auth=required");
-      openAccount();
-      return;
-    }
     openAccount();
-    if (route === "/orders" || route === "/wishlist") renderAccountRoute(route);
-    else { accountOrders.hidden = true; checkoutForm.hidden = false; }
+    if (route === "/orders" || route === "/wishlist") {
+      accountSignedOut.hidden = true;
+      accountSignedIn.hidden = false;
+      var signedInHeader = document.getElementById("signedInHeader");
+      var guestModeHeader = document.getElementById("guestModeHeader");
+      if (signedInHeader) signedInHeader.hidden = !firebaseUser && !supabaseUser;
+      if (guestModeHeader) guestModeHeader.hidden = true;
+      renderAccountRoute(route);
+    } else {
+      accountOrders.hidden = true;
+      checkoutForm.hidden = false;
+    }
   }
 
   function finishProtectedRedirect() {
@@ -818,7 +1117,7 @@ import { animate, inView, spring, stagger } from 'motion';
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       closeNav(); closeCart(); closeSearch(); closeAccount();
-      animate(sizeGuideModal.querySelector(".modal"), { opacity: 0, scale: 0.95 }, { duration: 0.2 }).finished.then(() => { sizeGuideModal.hidden = true; }); animate(sizeGuideModal, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 });
+      closeSizeGuide();
       scrim.hidden = true;
     }
   });

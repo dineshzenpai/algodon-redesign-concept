@@ -29,6 +29,16 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/shop" element={<PLP />} />
             <Route path="/product/:id" element={<PDP setIsCartOpen={setIsCartOpen} />} />
+            <Route path="/about" element={
+              <div className="max-w-4xl mx-auto px-6 py-20">
+                <h1 className="font-display text-4xl mb-6">About the Atelier</h1>
+                <p className="text-stone leading-relaxed mb-6">
+                  Architectural tailoring for the modern context. Sourced from unblended, pure organic cotton and raw materials that hold structural integrity. Conceived for quiet permanence.
+                </p>
+                <Link to="/shop" className="inline-block border-b border-ink pb-1 hover:text-clay-rose hover:border-clay-rose transition-colors">Explore the Collection</Link>
+              </div>
+            } />
+            <Route path="*" element={<Home />} />
           </Routes>
         </main>
 

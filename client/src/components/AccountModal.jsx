@@ -92,7 +92,7 @@ export default function AccountModal({ isOpen, onClose }) {
                     <div className="flex items-center justify-between relative mt-8 mb-2">
                       <div className="absolute left-0 top-1/2 w-full h-[1px] bg-stone/30 -z-10 -translate-y-1/2" />
                       
-                      {['Placed', 'Packed', 'Shipped', 'Out for delivery', 'Delivered'].map((step, i, arr) => {
+                      {['Placed', 'Packed', 'Shipped', 'Out for delivery', 'Delivered'].map((step, i) => {
                         const currentStep = 2; // 'Shipped' is active
                         const isActive = i === currentStep;
                         const isPast = i < currentStep;
