@@ -9,8 +9,8 @@ The storefront is a vanilla JavaScript ES module app served by the existing Expr
 3. Copy `.env.example` to `.env`. Set `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, and `FIREBASE_APP_ID` to the matching web-app values. The API key and other web config fields are public client configuration; the Admin SDK values below are private.
 4. In **Authentication → Sign-in method**, enable **Google** and choose a support email.
 5. In **Authentication → Settings → Authorized domains**, add `localhost` for local development and the exact production hostname (for example, `shop.example.com`, without a scheme or path). Add any preview hostnames you use.
-6. In **Firestore Database**, create the database, choose a region, and deploy this repository's `firestore.rules`.
-7. In **Storage**, enable the bucket and deploy `storage.rules`. Set `FIREBASE_STORAGE_BUCKET` to the bucket shown in project settings.
+6. In **Firestore Database**, create the database, choose a region, and deploy this repository's `../firestore.rules`.
+7. In **Storage**, enable the bucket and deploy `../storage.rules`. Set `FIREBASE_STORAGE_BUCKET` to the bucket shown in project settings.
 8. Create a service account for the backend/Admin SDK. Set `FIREBASE_CLIENT_EMAIL` and `FIREBASE_PRIVATE_KEY` from its credentials in the server's secret environment. Store the private key with literal `\n` characters or newlines. Never put this service-account key in `js/config.js`, frontend code, or a public repository.
 9. Keep the required existing Supabase environment values in `.env` as well. This project still uses Supabase for its catalog, orders, email/password accounts, and existing admin panel.
 

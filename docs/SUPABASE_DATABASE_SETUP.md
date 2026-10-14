@@ -6,19 +6,19 @@ This setup adds a customer-facing clothing catalog and commerce schema alongside
 
 In Supabase Dashboard → SQL Editor, create a new query for each file and run them in order:
 
-1. [`supabase/setup/01_identity_catalog.sql`](supabase/setup/01_identity_catalog.sql) — profiles, addresses, categories, products, variants, and images.
-2. [`supabase/setup/02_commerce.sql`](supabase/setup/02_commerce.sql) — carts, wishlists, store pricing settings, orders, coupons, redemptions, and reviews.
-3. [`supabase/setup/03_auth_rls.sql`](supabase/setup/03_auth_rls.sql) — signup trigger, admin helper, grants, and row-level policies.
-4. [`supabase/setup/04_storage_business_logic.sql`](supabase/setup/04_storage_business_logic.sql) — `product-images` bucket, cart/order RPCs, and reporting views.
-5. [`supabase/setup/05_seed_data.sql`](supabase/setup/05_seed_data.sql) — six categories, twelve sample garments with S–XXL/Natural/Navy variants, and three sample coupons.
+1. [`../supabase/setup/01_identity_catalog.sql`](../supabase/setup/01_identity_catalog.sql) — profiles, addresses, categories, products, variants, and images.
+2. [`../supabase/setup/02_commerce.sql`](../supabase/setup/02_commerce.sql) — carts, wishlists, store pricing settings, orders, coupons, redemptions, and reviews.
+3. [`../supabase/setup/03_auth_rls.sql`](../supabase/setup/03_auth_rls.sql) — signup trigger, admin helper, grants, and row-level policies.
+4. [`../supabase/setup/04_storage_business_logic.sql`](../supabase/setup/04_storage_business_logic.sql) — `product-images` bucket, cart/order RPCs, and reporting views.
+5. [`../supabase/setup/05_seed_data.sql`](../supabase/setup/05_seed_data.sql) — six categories, twelve sample garments with S–XXL/Natural/Navy variants, and three sample coupons.
 
-These scripts are safe to rerun for the seeded catalog and named triggers/policies. Back up any existing Supabase project before applying SQL. These tables are additive; the earlier admin-panel migration under `supabase/migrations/` remains separate and is not required for the customer schema.
+These scripts are safe to rerun for the seeded catalog and named triggers/policies. Back up any existing Supabase project before applying SQL. These tables are additive; the earlier admin-panel migration under `../supabase/migrations/` remains separate and is not required for the customer schema.
 
 ## Supabase project checklist
 
 1. Create a Supabase project and save its database password securely.
 2. In Authentication → Providers, enable Email and Google. Configure the Google OAuth client ID/secret and the Supabase callback URL shown in the provider setup. Add local and production site URLs to Authentication URL Configuration.
-3. In project API settings, copy the Project URL and publishable key (or legacy anon key) into `client/.env` using `client/.env.example`. The Vite client must only receive these public values. The Express API separately needs `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` in the repository-root `.env`; the secret/service-role key stays server-side.
+3. In project API settings, copy the Project URL and publishable key (or legacy anon key) into `../client/.env` using `../client/.env.example`. The Vite client must only receive these public values. The Express API separately needs `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SECRET_KEY` in the repository-root `.env`; the secret/service-role key stays server-side.
 4. Run the five SQL files in order above. The signup trigger creates a `profiles` row with `role='customer'` for both email and Google signups.
 5. Grant the first admin only after that person signs up. In SQL Editor, replace the email below with the verified account email:
 
