@@ -2,12 +2,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Algodon Redesign Concept — Hand Block-Print Organic Cotton Shirts</title>
   <meta name="description" content="Hand block-print 100% organic cotton shirts crafted in India with botanical dyes. Premium everyday fits, breathable weaves, and timeless artisan prints.">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Archivo:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="/css/styles.css">
 </head>
 <body>
 
@@ -88,11 +89,11 @@
       <div class="account-body" id="accountSignedOut" hidden style="display: flex; flex-direction: column; justify-content: center; height: 100%;">
         <h2 id="authTitle" style="text-align: center; margin-bottom: 24px; font-family: 'Fraunces', serif; font-size: 2rem; font-weight: 300;">Sign In</h2>
 
-        <button type="button" id="googleSignInBtn" class="btn btn-ghost" style="width:100%; justify-content:center; margin-bottom:16px; display:flex; gap:10px; align-items:center;">
+        <button type="button" id="googleSignInBtn" hidden class="btn btn-ghost" style="width:100%; justify-content:center; margin-bottom:16px; display:flex; gap:10px; align-items:center;">
           <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
           Continue with Google
         </button>
-        <div style="display:flex; align-items:center; text-align:center; color:var(--ink-soft); font-size:0.75rem; margin-bottom:16px;">
+        <div id="googleSignInDivider" hidden style="display:flex; align-items:center; text-align:center; color:var(--ink-soft); font-size:0.75rem; margin-bottom:16px;">
           <hr style="flex:1; border:none; border-top:1px solid var(--line);">
           <span style="padding:0 10px;">or</span>
           <hr style="flex:1; border:none; border-top:1px solid var(--line);">
@@ -103,10 +104,10 @@
             <label for="signInEmail">Email</label>
             <input type="email" id="signInEmail" autocomplete="email" required />
           </div>
-          <div class="field">
+          <div class="field" id="signInPasswordField">
             <div style="display: flex; justify-content: space-between; align-items: baseline;">
               <label for="signInPassword">Password</label>
-              <a href="#" style="font-size: 0.75rem; color: var(--ink-soft); text-decoration: none;">Forgot password?</a>
+              <button type="button" id="forgotPasswordBtn" style="font:inherit; font-size:.75rem; color:var(--ink-soft); border:0; padding:0; background:none; cursor:pointer;">Forgot password?</button>
             </div>
             <input type="password" id="signInPassword" autocomplete="current-password" required />
           </div>
@@ -135,7 +136,13 @@
           <button type="submit" class="btn btn-solid" style="justify-content:center; padding: 14px; margin-top: 8px;">Create Account</button>
         </form>
         
-        <div style="text-align: center; margin-top: 24px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 10px;">
+        <form class="checkout-form" id="recoveryForm" hidden style="border:0; padding:0;">
+          <div class="field"><label for="recoveryPassword">New password</label><input id="recoveryPassword" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></div>
+          <div class="field"><label for="recoveryConfirm">Confirm new password</label><input id="recoveryConfirm" type="password" autocomplete="new-password" minlength="12" maxlength="128" required></div>
+          <p class="field-error" id="recoveryError" role="status"></p>
+          <button type="submit" class="btn btn-solid" style="justify-content:center;">Update password</button>
+        </form>
+        <div id="authLinks" style="text-align: center; margin-top: 24px; font-size: 0.85rem; display: flex; flex-direction: column; gap: 10px;">
           <button type="button" id="authToggleBtn" style="background: none; border: none; border-bottom: 1px solid transparent; color: var(--ink-soft); cursor: pointer; padding: 0; font: inherit;">Create an account</button>
           <button type="button" id="guestShippingBtn" style="background: none; border: none; border-bottom: 1px solid var(--line-strong); color: var(--accent); cursor: pointer; padding: 4px 0; font: inherit; font-size: 0.82rem; align-self: center;">Continue as Guest (Shipping Details) →</button>
           <button type="button" id="guestOrdersBtn" style="background: none; border: none; color: var(--ink-soft); cursor: pointer; padding: 4px 0; font: inherit; font-size: 0.82rem; align-self: center;">View Placed Orders →</button>
@@ -232,7 +239,7 @@
 </div>
 
 <div class="hero">
-  <img src="img/hero.jpg" alt="Man in a golden-brown swirl print organic cotton shirt leaning on a railing by the sea" />
+  <img src="/img/hero.jpg" alt="Man in a golden-brown swirl print organic cotton shirt leaning on a railing by the sea" />
   <span class="hero-tag">100% Organic Cotton</span>
   <div class="hero-copy">
     <span class="eyebrow">Hand block-print motifs · Coconut shell buttons</span>
@@ -267,8 +274,8 @@
     <a href="#" class="viewall">View all prints →</a>
   </div>
   <div class="grid" id="productGrid">
-    <article class="card" data-product="golden-brown" data-name="Golden-Brown Swirl" data-price="1900" data-img="img/product-golden-brown.jpg">
-      <figure><img src="img/product-golden-brown.jpg" alt="Golden-Brown swirl motif organic cotton shirt" /></figure>
+    <article class="card" data-product="golden-brown" data-name="Golden-Brown Swirl" data-price="1900" data-img="/img/product-golden-brown.jpg">
+      <figure><img src="/img/product-golden-brown.jpg" alt="Golden-Brown swirl motif organic cotton shirt" /></figure>
       <div class="card-body">
         <span class="eyebrow">Algodon</span>
         <h3>Golden-Brown Swirl</h3>
@@ -283,9 +290,9 @@
         <button class="add-btn" type="button">Add to Cart</button>
       </div>
     </article>
-    <article class="card" data-product="jali" data-name="Rajasthan Jali" data-price="1900" data-img="img/product-jali.jpg">
+    <article class="card" data-product="jali" data-name="Rajasthan Jali" data-price="1900" data-img="/img/product-jali.jpg">
       <figure>
-        <img src="img/product-jali.jpg" alt="Rajasthan Jali lattice print organic cotton shirt in pink" />
+        <img src="/img/product-jali.jpg" alt="Rajasthan Jali lattice print organic cotton shirt in pink" />
       </figure>
       <div class="card-body">
         <span class="eyebrow">Algodon · 1 review</span>
@@ -301,10 +308,10 @@
         <button class="add-btn" type="button">Add to Cart</button>
       </div>
     </article>
-    <article class="card" data-product="pakshee" data-name="Rangeen Pakshee" data-price="1900" data-img="img/product-pakshee.jpg">
+    <article class="card" data-product="pakshee" data-name="Rangeen Pakshee" data-price="1900" data-img="/img/product-pakshee.jpg">
       <figure>
         <span class="badge-sale">Now 57% off</span>
-        <img src="img/product-pakshee.jpg" alt="Rangeen Pakshee colourful bird print organic cotton shirt" />
+        <img src="/img/product-pakshee.jpg" alt="Rangeen Pakshee colourful bird print organic cotton shirt" />
       </figure>
       <div class="card-body">
         <span class="eyebrow">Algodon</span>
@@ -320,10 +327,10 @@
         <button class="add-btn" type="button">Add to Cart</button>
       </div>
     </article>
-    <article class="card" data-product="kamal" data-name="Kamal Ka Phool" data-price="1900" data-img="img/product-kamal.jpg">
+    <article class="card" data-product="kamal" data-name="Kamal Ka Phool" data-price="1900" data-img="/img/product-kamal.jpg">
       <figure>
         <span class="badge-sale">Now 77% off</span>
-        <img src="img/product-kamal.jpg" alt="Kamal Ka Phool lotus print organic cotton shirt" />
+        <img src="/img/product-kamal.jpg" alt="Kamal Ka Phool lotus print organic cotton shirt" />
       </figure>
       <div class="card-body">
         <span class="eyebrow">Algodon</span>
@@ -343,7 +350,7 @@
 </section>
 
 <section id="story" class="story">
-  <img src="img/story-label.jpg" alt="Close-up of the Algodon Organic woven label inside a pink jali print collar" />
+  <img src="/img/story-label.jpg" alt="Close-up of the Algodon Organic woven label inside a pink jali print collar" />
   <div>
     <span class="eyebrow">Made With Intention</span>
     <h2>Block print, not boilerplate.</h2>
@@ -358,7 +365,7 @@
 </section>
 
 <figure class="band">
-  <img src="img/story-texture.jpg" alt="Close-up of the golden-brown swirl print catching the light" />
+  <img src="/img/story-texture.jpg" alt="Close-up of the golden-brown swirl print catching the light" />
   <figcaption>Shot on the coast, printed inland — Golden-Brown Swirl</figcaption>
 </figure>
 
@@ -430,14 +437,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/jspdf@4.2.1/dist/jspdf.umd.min.js" integrity="sha384-qovJwSBbRDPP5cEjCp8S0UP66wrvnjaa60XMOGzTNanrThcrGfXfnZkvgY8N1KT3" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js" integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP" crossorigin="anonymous"></script>
-<script type="importmap">
-  {
-    "imports": {
-      "motion": "https://cdn.jsdelivr.net/npm/motion@11.11.13/+esm"
-    }
-  }
-</script>
-<script src="js/config.js"></script>
-<script type="module" src="js/main.js"></script>
+<script src="/js/config.js"></script>
+<script type="module" src="/js/main.js"></script>
 </body>
 </html>

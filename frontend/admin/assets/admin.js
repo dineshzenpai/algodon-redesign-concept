@@ -70,7 +70,7 @@ function beginInactivityTimer() {
 
 function shell(title, content, actions = '') {
   const allowed = navItems.filter(([key]) => currentUser.role === 'support' ? ['products','orders','customers'].includes(key) : (key !== 'staff' && key !== 'activity' || currentUser.role === 'super_admin'));
-  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand">Algodon Organic<small>Store administration</small></div><nav class="nav">${allowed.map(([key, label]) => `<button data-page="${key}" class="${activePage === key ? 'active' : ''}">${label}</button>`).join('')}</nav><div class="sidebar-bottom"><div class="user-badge">${esc(currentUser.email)}<br>${esc(currentUser.role.replace('_', ' '))}</div><button class="btn" id="logoutBtn">Sign out</button></div></aside><main class="main"><div class="topbar"><h1>${esc(title)}</h1><div class="top-actions">${actions}<button class="btn" id="themeBtn" title="Toggle light and dark mode">◐</button><span class="user-badge" style="color:var(--soft)">${esc(currentUser.role.replace('_', ' '))}</span></div></div><div class="content">${content}</div></main></div>`;
+  app.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand">Algodon Organic<small>Store administration</small></div><nav class="nav">${allowed.map(([key, label]) => `<button data-page="${key}" class="${activePage === key ? 'active' : ''}">${label}</button>`).join('')}</nav><div class="sidebar-bottom"><div class="user-badge">${esc(currentUser.email)}<br>${esc(currentUser.role.replace('_', ' '))}</div></div></aside><main class="main"><div class="topbar"><h1>${esc(title)}</h1><div class="top-actions">${actions}<button class="btn" id="logoutBtn">Sign out</button><button class="btn" id="themeBtn" title="Toggle light and dark mode">◐</button><span class="user-badge" style="color:var(--soft)">${esc(currentUser.role.replace('_', ' '))}</span></div></div><div class="content">${content}</div></main></div>`;
   document.querySelectorAll('[data-page]').forEach(button => button.addEventListener('click', () => { activePage = button.dataset.page; activePageNumber = 1; searchValue = ''; render(); }));
   document.getElementById('logoutBtn').addEventListener('click', async () => { try { await api('/auth/logout', { method: 'POST' }); } finally { currentUser = null; showLogin(); } });
   document.getElementById('themeBtn').addEventListener('click', () => { document.body.classList.toggle('dark'); localStorage.setItem('algodon-admin-dark', document.body.classList.contains('dark') ? '1' : '0'); });
@@ -167,6 +167,7 @@ async function compressImage(file) {
 }
 function modal(content) { const wrap = document.createElement('div'); wrap.className = 'modal-backdrop'; wrap.id = 'activeModal'; wrap.innerHTML = `<section class="modal">${content}</section>`; document.body.appendChild(wrap); wrap.addEventListener('click', e => { if (e.target === wrap || e.target.closest('[data-close-modal]')) closeModal(); }); }
 function closeModal() { document.getElementById('activeModal')?.remove(); }
+document.addEventListener('keydown', event => { if (event.key === 'Escape') closeModal(); });
 
 async function categoriesView() {
   const { data } = await api('/categories'); const canEdit = ['super_admin','manager'].includes(currentUser.role);

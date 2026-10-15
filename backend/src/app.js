@@ -6,8 +6,6 @@ import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import fs from 'node:fs';
-import { createHash } from 'node:crypto';
 import { env } from './config/env.js';
 import { checkDatabase } from './config/db.js';
 import { authRouter } from './customer/auth.js';
@@ -23,16 +21,13 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 if (process.env.VERCEL === '1') app.set('trust proxy', 1);
-const storefrontHtml = fs.readFileSync(path.join(__dirname, '../../frontend/storefront/index.html'), 'utf8');
-const importMap = storefrontHtml.match(/<script type="importmap">([\s\S]*?)<\/script>/)?.[1];
-const importMapHash = importMap ? `'sha256-${createHash('sha256').update(importMap.replace(/\r\n?/g, '\n')).digest('base64')}'` : null;
 
 // Global Middlewares
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'https://cdn.jsdelivr.net', 'https://www.gstatic.com', 'https://apis.google.com', ...(importMapHash ? [importMapHash] : [])],
+      scriptSrc: ["'self'", 'https://cdn.jsdelivr.net', 'https://www.gstatic.com', 'https://apis.google.com'],
       scriptSrcAttr: ["'none'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],

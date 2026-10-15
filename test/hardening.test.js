@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import app from '../backend/src/app.js';
 import { setDb } from '../backend/src/config/db.js';
@@ -30,8 +29,8 @@ test('HTTP security boundaries, coupons, and session revocation', async () => {
     assert.match(csp, /script-src-attr 'none'/);
     assert.match(csp, /object-src 'none'/);
     const html = fs.readFileSync(new URL('../frontend/storefront/index.html', import.meta.url), 'utf8');
-    const map = html.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1].replace(/\r\n?/g, '\n');
-    assert.ok(csp.includes('sha256-' + createHash('sha256').update(map).digest('base64')));
+    assert.doesNotMatch(html, /<script type="importmap">/);
+    assert.ok(!csp.split(';').find(directive => directive.trim().startsWith('script-src ')).includes("'unsafe-inline'"));
     assert.equal((await post('/api/invoice', { email: 'victim@example.com' })).status, 410);
     assert.equal((await post('/api/admin/invoice', {}, { 'X-Admin-Request': '1' })).status, 401);
     assert.equal((await post('/api/admin/auth/login', { email: 'test@example.com', password: 'test' })).status, 403);

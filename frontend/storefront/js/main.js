@@ -1,8 +1,9 @@
-import { animate, inView, spring, stagger } from 'motion';
+import { animate, inView, stagger } from './motion.js';
 import { escapeHtml, normalizeCart } from './safety.js';
 
 (function() {
   "use strict";
+  var recoveryMode = new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery';
 
   /* ---------- Supabase (email accounts and store data) ---------- */
   // Loaded from config.js
@@ -19,8 +20,12 @@ import { escapeHtml, normalizeCart } from './safety.js';
       if (session) headers.Authorization = 'Bearer ' + session.access_token;
     }
     var response = await fetch(path, { ...options, headers:headers });
-    var result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'The request could not be completed.');
+    var result = await response.json().catch(function() { return {}; });
+    if (!response.ok) {
+      var error = new Error(result.error || 'The service is temporarily unavailable. Please try again.');
+      error.status = response.status;
+      throw error;
+    }
     return result;
   }
 
@@ -124,13 +129,15 @@ import { escapeHtml, normalizeCart } from './safety.js';
   function openSizeGuide() {
     if (!sizeGuideModal) return;
     sizeGuideModal.hidden = false;
-    animate(sizeGuideModal.querySelector(".modal"), { opacity: [0, 1], scale: [0.95, 1] }, { duration: 0.4, easing: spring() });
+    sizeGuideModal.dataset.animation = String(Number(sizeGuideModal.dataset.animation || 0) + 1);
+    animate(sizeGuideModal.querySelector(".modal"), { opacity: [0, 1], scale: [0.95, 1] }, { duration: 0.4, ease:'easeOut' });
     animate(sizeGuideModal, { backgroundColor: ["rgba(0,0,0,0)", "rgba(33,28,22,0.95)"] }, { duration: 0.4 });
   }
   function closeSizeGuide() {
     if (!sizeGuideModal || sizeGuideModal.hidden) return;
+    var version = sizeGuideModal.dataset.animation;
     animate(sizeGuideModal.querySelector(".modal"), { opacity: 0, scale: 0.95 }, { duration: 0.2 }).finished.then(function() {
-      sizeGuideModal.hidden = true;
+      if (sizeGuideModal.dataset.animation === version) sizeGuideModal.hidden = true;
     });
     animate(sizeGuideModal, { backgroundColor: "rgba(0,0,0,0)" }, { duration: 0.2 });
   }
@@ -364,8 +371,9 @@ import { escapeHtml, normalizeCart } from './safety.js';
         "</div>" +
         '<div class="price">' + formatRs(item.qty * item.price) + "</div>";
       row.querySelector('[data-action="inc"]').addEventListener("click", function () {
-        cart[idx].qty += 1; saveCart(cart); renderCart();
+        cart[idx].qty = Math.min(100, cart[idx].qty + 1); saveCart(cart); renderCart();
       });
+      row.querySelector('[data-action="inc"]').disabled = item.qty >= 100;
       row.querySelector('[data-action="dec"]').addEventListener("click", function () {
         cart[idx].qty -= 1;
         if (cart[idx].qty <= 0) cart.splice(idx, 1);
@@ -658,8 +666,11 @@ import { escapeHtml, normalizeCart } from './safety.js';
   var signUpError = document.getElementById("signUpError");
   var signOutBtn = document.getElementById("signOutBtn");
   var googleSignInBtn = document.getElementById("googleSignInBtn");
+  googleSignInBtn.hidden = !window.APP_CONFIG?.FIREBASE_ENABLED;
+  document.getElementById('googleSignInDivider').hidden = googleSignInBtn.hidden;
   
   var isSignIn = true;
+  var resetMode = false;
   var supabaseUser = null;
   var supabaseReady = !sb;
   var firebaseReady = false;
@@ -691,6 +702,7 @@ import { escapeHtml, normalizeCart } from './safety.js';
   });
 
   authToggleBtn.addEventListener("click", function () {
+    if (resetMode) { setResetMode(false); return; }
     isSignIn = !isSignIn;
     if (isSignIn) {
       authTitle.innerText = "Sign In";
@@ -703,6 +715,39 @@ import { escapeHtml, normalizeCart } from './safety.js';
       signInForm.hidden = true;
       authToggleBtn.innerText = "Already have an account? Sign in";
     }
+  });
+  function setResetMode(enabled) {
+    resetMode = enabled;
+    isSignIn = true;
+    signInForm.hidden = false;
+    signUpForm.hidden = true;
+    document.getElementById('signInPasswordField').hidden = enabled;
+    document.getElementById('signInPassword').required = !enabled;
+    authTitle.textContent = enabled ? 'Reset password' : 'Sign In';
+    signInForm.querySelector('button[type="submit"]').textContent = enabled ? 'Send reset link' : 'Sign In';
+    authToggleBtn.textContent = enabled ? 'Back to sign in' : 'Create an account';
+    signInError.textContent = '';
+  }
+  document.getElementById('forgotPasswordBtn').addEventListener('click', function() { setResetMode(true); });
+  document.getElementById('recoveryForm').addEventListener('submit', async function(event) {
+    event.preventDefault();
+    var password = document.getElementById('recoveryPassword').value;
+    var errorEl = document.getElementById('recoveryError');
+    if (password !== document.getElementById('recoveryConfirm').value) { errorEl.textContent = 'Passwords must match.'; return; }
+    var button = event.currentTarget.querySelector('button[type="submit"]');
+    button.disabled = true;
+    try {
+      await accountFetch('/api/auth/password-update', { method:'POST', body:JSON.stringify({ password:password }) });
+      await accountFetch('/api/auth/logout', { method:'POST' }).catch(function() {});
+      await sb.auth.signOut({ scope:'local' });
+      recoveryMode = false;
+      document.getElementById('recoveryForm').hidden = true;
+      document.getElementById('authLinks').hidden = false;
+      setResetMode(false);
+      showSignedOut();
+      signInError.textContent = 'Password updated. Sign in with your new password.';
+    } catch(error) { errorEl.textContent = error.message; }
+    finally { button.disabled = false; }
   });
 
   googleSignInBtn.addEventListener("click", async function () {
@@ -837,6 +882,29 @@ import { escapeHtml, normalizeCart } from './safety.js';
       accountSignedIn.hidden = true;
       return;
     }
+    if (recoveryMode && !supabaseUser) {
+      recoveryMode = false;
+      setResetMode(true);
+      showSignedOut();
+      signInError.textContent = 'This reset link has expired. Request a new link.';
+      history.replaceState(null, '', location.pathname + location.search);
+      openAccount();
+      return;
+    }
+    if (recoveryMode) {
+      accountSignedOut.hidden = false;
+      accountSignedIn.hidden = true;
+      signInForm.hidden = true;
+      signUpForm.hidden = true;
+      document.getElementById('authLinks').hidden = true;
+      document.getElementById('recoveryForm').hidden = false;
+      authTitle.textContent = 'Set a new password';
+      googleSignInBtn.hidden = true;
+      document.getElementById('googleSignInDivider').hidden = true;
+      history.replaceState(null, '', location.pathname + location.search);
+      openAccount();
+      return;
+    }
     if (firebaseUser) {
       showSignedIn(firebaseUser, firebaseUser.displayName);
     } else if (supabaseUser) {
@@ -937,7 +1005,7 @@ import { escapeHtml, normalizeCart } from './safety.js';
       return;
     }
 
-    localOrders.slice().reverse().forEach(function (order) {
+    localOrders.slice().sort(function(a,b) { return (Date.parse(b.created_at) || 0) - (Date.parse(a.created_at) || 0); }).forEach(function (order) {
       var card = document.createElement("div");
       card.className = "order-card";
       var orderId = order.id || "ALG-ORD";
@@ -1038,8 +1106,9 @@ import { escapeHtml, normalizeCart } from './safety.js';
       setTimeout(syncAccountCart, 0);
       renderAccountUser();
       finishProtectedRedirect();
-    });
+    }).catch(function() { supabaseReady = true; renderAccountUser(); showAuthToast('Your session could not be restored. Please sign in again.'); });
     sb.auth.onAuthStateChange(function (event, session) {
+      if (event === 'PASSWORD_RECOVERY') recoveryMode = true;
       supabaseUser = session && session.user || null;
       supabaseReady = true;
       setTimeout(syncAccountCart, 0);
@@ -1077,6 +1146,13 @@ import { escapeHtml, normalizeCart } from './safety.js';
     var password = document.getElementById("signInPassword").value;
     var btn = signInForm.querySelector("button[type=submit]");
     btn.disabled = true; btn.textContent = "Signing in…";
+    if (resetMode) {
+      btn.textContent = 'Sending…';
+      accountFetch('/api/auth/password-reset', { method:'POST', body:JSON.stringify({ email:email }) }).then(function(result) {
+        signInError.textContent = result.message;
+      }).catch(function(error) { signInError.textContent = error.message; }).finally(function() { btn.disabled = false; btn.textContent = 'Send reset link'; });
+      return;
+    }
     accountFetch('/api/auth/login', { method:'POST', body:JSON.stringify({ email:email, password:password }) }).then(async function(result) {
       var stored = await sb.auth.setSession({ access_token:result.session.access_token, refresh_token:result.session.refresh_token });
       if (stored.error) throw stored.error;
@@ -1132,13 +1208,13 @@ import { escapeHtml, normalizeCart } from './safety.js';
 
   signOutBtn.addEventListener("click", function () {
     var signOutTasks = [];
-    if (sb && supabaseUser) signOutTasks.push(accountFetch('/api/auth/logout', { method:'POST' }).then(function() { return sb.auth.signOut({ scope:'local' }); }));
+    if (sb && supabaseUser) signOutTasks.push(accountFetch('/api/auth/logout', { method:'POST' }).catch(function(error) { if (error.status !== 401) throw error; }).then(function() { return sb.auth.signOut({ scope:'local' }); }));
     else if (sb) signOutTasks.push(sb.auth.signOut({ scope:'local' }));
     if (firebaseContext) {
       signOutTasks.push(firebaseContext.logout());
     }
     Promise.all(signOutTasks).catch(function (error) {
-      console.error("Sign-out failed:", error);
+      showAuthToast(error.message || 'Sign-out failed. Please try again.');
     });
   });
   navLogoutBtn.addEventListener("click", function () { signOutBtn.click(); });
@@ -1181,6 +1257,7 @@ import { escapeHtml, normalizeCart } from './safety.js';
       var existing = cart.find(function (i) {
         return i.id === card.dataset.product && i.size === selectedSize;
       });
+      if (existing && existing.qty >= 100) { hint.textContent = 'Maximum quantity is 100 per size.'; return; }
       if (existing) existing.qty += 1;
       else {
         cart.push({
@@ -1220,7 +1297,7 @@ import { escapeHtml, normalizeCart } from './safety.js';
     var grid = document.getElementById('productGrid');
     grid.replaceChildren();
     result.data.forEach(function (product) {
-      var mainImage = product.images && product.images[0] || 'img/product-golden-brown.jpg';
+      var mainImage = product.images && product.images[0] || '/img/product-golden-brown.jpg';
       var card = document.createElement('article');
       card.className = 'card';
       card.dataset.product = product.id;
@@ -1244,11 +1321,18 @@ import { escapeHtml, normalizeCart } from './safety.js';
       var hint = document.createElement('div'); hint.className = 'size-hint';
       var add = document.createElement('button'); add.type='button'; add.className='add-btn'; add.textContent=product.stock_count > 0 ? 'Add to Cart' : 'Out of Stock';
       if (product.stock_count <= 0) add.disabled = true;
-      body.append(brand,title,priceRow,sizes,hint,add); card.append(figure,body); grid.appendChild(card);
+      var save = document.createElement('button'); save.type='button'; save.className='btn btn-ghost'; save.textContent='Save to wishlist';
+      save.addEventListener('click', async function() {
+        if (!supabaseUser) { openAccount(); showAuthToast('Sign in to save products to your wishlist.'); return; }
+        save.disabled = true;
+        try { await accountFetch('/api/account/wishlist/' + encodeURIComponent(product.id), { method:'PUT' }); save.textContent='Saved to wishlist'; }
+        catch(error) { hint.textContent=error.message; save.disabled=false; }
+      });
+      body.append(brand,title,priceRow,sizes,hint,add,save); card.append(figure,body); grid.appendChild(card);
     });
     cards = Array.prototype.slice.call(grid.querySelectorAll('.card'));
     bindProductCards(cards);
-  }).catch(function () {});
+  }).catch(function () { showAuthToast('The catalog is temporarily unavailable. Please refresh to try again.'); });
 
   /* ---------- newsletter ---------- */
   var newsletterForm = document.getElementById("newsletterForm");
@@ -1262,7 +1346,7 @@ import { escapeHtml, normalizeCart } from './safety.js';
     var email = newsletterEmail.value.trim();
     newsletterSubmit.disabled = true;
     accountFetch('/api/newsletter', { method:'POST', body:JSON.stringify({ email:email }) }).then(function () {
-      newsletterMsg.textContent = "You're on the list — saved to the live database.";
+      newsletterMsg.textContent = "You're on the list. Thanks for subscribing!";
       newsletterForm.reset();
     }).catch(function (err) {
       newsletterMsg.textContent = err && err.code === "permission-denied"
@@ -1283,16 +1367,16 @@ import { escapeHtml, normalizeCart } from './safety.js';
   animate(
     ".hero-copy h1, .hero-copy .eyebrow, .hero-copy p, .hero-actions", 
     { opacity: [0, 1], y: [30, 0] },
-    { delay: stagger(0.15), duration: 0.8, easing: [0.22, 1, 0.36, 1] }
+    { delay: stagger(0.15), duration: 0.8, ease: [0.22, 1, 0.36, 1] }
   );
 
   // 2. Fade up sections on scroll
-  inView(".editorial-content", (info) => {
-    animate(info.target, { opacity: [0, 1], y: [40, 0] }, { duration: 0.8, easing: [0.22, 1, 0.36, 1] });
+  inView(".editorial-content", (element) => {
+    animate(element, { opacity: [0, 1], y: [40, 0] }, { duration: 0.8, ease: [0.22, 1, 0.36, 1] });
   });
 
-  inView(".card", (info) => {
-    animate(info.target, { opacity: [0, 1], y: [20, 0] }, { duration: 0.6, easing: "ease-out" });
+  inView(".card", (element) => {
+    animate(element, { opacity: [0, 1], y: [20, 0] }, { duration: 0.6, ease: "ease-out" });
   });
   
   // 3. Stagger story images

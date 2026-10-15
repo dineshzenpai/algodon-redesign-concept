@@ -17,7 +17,7 @@ export async function buildAssets(destination = output) {
   for (const [source, target] of directories) {
     await fs.cp(path.join(root, source), path.join(destination, target), { recursive: true });
   }
-  for (const name of ['main.js', 'safety.js']) {
+  for (const name of ['main.js', 'safety.js', 'motion.js']) {
     await fs.mkdir(path.join(destination, 'js'), { recursive: true });
     await fs.copyFile(path.join(root, 'frontend/storefront/js', name), path.join(destination, 'js', name));
   }
