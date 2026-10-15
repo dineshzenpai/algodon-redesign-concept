@@ -1,3 +1,9 @@
+-- LEGACY PROTOTYPE ONLY: this file installs place_order(uuid,text), not a wrapper
+-- for storefront_create_order. Its color/SKU inventory and orders contract cannot
+-- be converted implicitly. Do not apply it as an upgrade to managed checkout.
+-- See docs/CHECKOUT_PATH_UNIFICATION.md and docs/ADMIN_PANEL_SETUP.md.
+-- Existing installations require a reviewed forward migration; this file does
+-- not change or disable their checkout APIs.
 -- 04: Secure product image storage, atomic cart/order functions, and reporting views.
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values ('product-images', 'product-images', true, 10485760, array['image/jpeg','image/png','image/webp','image/avif'])

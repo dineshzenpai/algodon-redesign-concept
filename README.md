@@ -1,6 +1,6 @@
 # Algodon Organic — Editorial Redesign Concept
 
-An editorial redesign concept for **Algodon Organic Shirts**, built with structural minimalism, modern commerce workflows, and full-stack capabilities. The project combines a responsive vanilla storefront, an administrative management portal, an Express API backend, and an optional modern React + Vite client.
+An editorial redesign concept for **Algodon Organic Shirts**, built with structural minimalism, modern commerce workflows, and full-stack capabilities. The project combines a responsive vanilla storefront, an administrative management portal, an Express API backend.
 
 ---
 
@@ -16,14 +16,11 @@ An editorial redesign concept for **Algodon Organic Shirts**, built with structu
    - Role-based staff panel (Super Admin, Manager, Support) for managing catalog items, stock variants, coupons, customer notes, and orders.
    - Protected API access with session and token validation.
 
-3. **Backend API (`server.js`, `src/`)**
+3. **Backend API (`backend/server.js`, `backend/src/`)**
    - Express server with Helmet security headers, rate limiting, and CORS configuration.
-   - Public commerce endpoints, order creation with fallback demo handling, and coupon verification.
+   - Public catalog, atomic order creation, coupon verification, customer accounts, profiles, saved carts, wishlists, private order history, and newsletter storage.
    - Email invoice delivery via Nodemailer SMTP.
    - Firebase Admin SDK for token verification and Supabase PostgreSQL client with RLS.
-
-4. **React Client (`client/`)**
-   - React 19 + Vite + Tailwind CSS frontend application showcasing architectural tailoring and catalog browsing.
 
 ---
 
@@ -31,39 +28,32 @@ An editorial redesign concept for **Algodon Organic Shirts**, built with structu
 
 ```
 algodon-redesign-concept/
-├── client/              # React 19 + Vite + Tailwind web application
-│   ├── src/             # Pages, components, and Supabase client
-│   └── package.json     # Client-specific dependencies and build scripts
-├── css/                 # Stylesheets for storefront and admin panel
-│   ├── admin.css        # Admin portal styling
-│   └── styles.css       # Storefront editorial design system
-├── docs/                # Setup guides and documentation
-│   ├── ADMIN_PANEL_SETUP.md       # Admin panel installation & roles
-│   ├── FIREBASE_AUTH_SETUP.md     # Firebase Auth & Google Sign-in setup
-│   ├── SUPABASE_DATABASE_SETUP.md # Supabase commerce schemas & migrations
-│   └── invoice-sample.pdf         # Sample generated order invoice
-├── img/                 # High-resolution editorial photography & assets
-├── js/                  # Frontend scripts
-│   ├── admin.js         # Admin panel reactive controller
-│   ├── config.example.js# Frontend configuration template
-│   └── main.js          # Storefront interaction, cart, checkout, & PDF invoices
-├── scripts/             # Operational utility scripts
-│   ├── grant-firebase-admin.js    # Firebase admin claim provisioner
-│   └── seed-admin.js    # Admin user seed script
-├── src/                 # Express backend application source
-│   ├── admin/           # Admin router and public storefront endpoints
-│   ├── config/          # Environment validation (Zod) and DB connector
-│   ├── firebase/        # Firebase Admin SDK initialization
-│   └── lib/             # Shared server-side authentication helpers
-├── supabase/            # Supabase database migrations and schemas
-│   ├── migrations/      # Versioned schema migrations
-│   └── setup/           # Sequential commerce setup SQL files
-├── admin.html           # Admin portal HTML template
-├── firestore.rules      # Firestore security rules
-├── index.html           # Primary editorial storefront HTML template
-├── package.json         # Root package configuration and operational scripts
-├── server.js            # Express server entry point
-└── storage.rules        # Firebase Storage security rules
+├── backend/                             # Express backend application
+│   ├── package.json                     # Backend service dependencies & scripts
+│   ├── server.js                        # Express HTTP server entry point
+│   └── src/                             # Backend source code
+│       ├── admin/                       # Admin router & public checkout RPC
+│       ├── config/                      # Environment schema (Zod) & DB client
+│       └── firebase/                    # Firebase Admin SDK initialization
+├── frontend/                            # Frontend applications and interfaces
+│   ├── admin/                           # Admin portal browser interface
+│   │   ├── admin.html                   # Admin entry point
+│   │   └── assets/                      # Admin stylesheets and JavaScript
+│   ├── storefront/                      # Editorial organic shirts storefront
+│   │   ├── index.html                   # Storefront landing page & SPA host
+│   │   ├── css/                         # Storefront editorial design system
+│   │   ├── js/                          # Storefront interaction & cart scripts
+│   │   ├── img/                         # High-res photography & assets
+│   │   └── lib/                         # Client-side Firebase auth & storage SDK
+├── supabase/                            # Supabase database migrations and schemas
+│   ├── migrations/                      # Versioned schema migrations
+│   └── setup/                           # Sequential commerce setup SQL files
+├── docs/                                # Architecture & setup guides
+├── scripts/                             # Utility scripts (seed admin, claims)
+├── test/                                # Automated security & routing tests
+├── .env.example                         # Environment configuration template
+├── package.json                         # Monorepo root orchestration
+└── README.md
 ```
 
 ---
@@ -80,11 +70,6 @@ Clone the repository and install root dependencies:
 npm install
 ```
 
-Install client dependencies (optional, for React client development):
-```bash
-cd client && npm install && cd ..
-```
-
 ### 3. Environment Configuration
 1. Copy the environment example to create your secret configuration:
    ```bash
@@ -92,13 +77,10 @@ cd client && npm install && cd ..
    ```
 2. Configure your Supabase and Firebase keys in `.env`.
    *(Note: The server will run in offline fallback/demo mode if external database credentials are not present).*
-3. Set up the frontend configuration:
-   ```bash
-   cp js/config.example.js js/config.js
-   ```
+3. Run `npm run db:migrate` to apply pending migrations. Public storefront configuration is served automatically at `/js/config.js`; no browser secret file is needed. See [Backend API and Setup](docs/BACKEND_API.md).
 
 ### 4. Running the Application
-- **Start the Express Server**:
+- **Start the Express Server & Storefront**:
   ```bash
   npm run dev      # Runs with Node --watch
   # or
@@ -106,24 +88,20 @@ cd client && npm install && cd ..
   ```
   Visit [http://localhost:3000](http://localhost:3000) for the storefront and [http://localhost:3000/admin](http://localhost:3000/admin) for the admin portal.
 
-- **Start the React Client** (Vite Dev Server):
-  ```bash
-  npm run client:dev
-  ```
-
 ---
 
 ## Available Scripts
 
 | Script | Command | Purpose |
 | --- | --- | --- |
-| `npm start` | `node server.js` | Starts the Express server |
-| `npm run dev` | `node --watch server.js` | Starts the Express server with file watch |
+| `npm start` | `node backend/server.js` | Starts the Express server |
+| `npm run dev` | `node --watch backend/server.js` | Starts the Express server with file watch |
+| `npm test` | `node --test test/*.test.js` | Runs automated security & route tests |
+| `npm run db:migrate` | `node scripts/migrate.js` | Applies pending migrations and verifies checksums |
+| `npm run verify:backend` | `node scripts/verify-backend.js` | Verifies live backend flows using temporary Supabase records |
+| `npm run backend:start` | `npm --prefix backend start` | Starts backend server via backend package |
 | `npm run seed:admin` | `node scripts/seed-admin.js` | Seeds initial Super Admin credentials |
 | `npm run grant:firebase-admin` | `node scripts/grant-firebase-admin.js` | Grants admin custom claims to Firebase user |
-| `npm run client:dev` | `npm --prefix client run dev` | Starts the Vite dev server for React client |
-| `npm run client:build` | `npm --prefix client run build` | Compiles production bundle for React client |
-| `npm run client:lint` | `npm --prefix client run lint` | Runs fast Oxlint linter on React client |
 
 ---
 
@@ -132,6 +110,7 @@ cd client && npm install && cd ..
 Detailed installation and service integration guides are located in the [`docs/`](docs/) folder:
 
 - [Admin Panel Setup Guide](docs/ADMIN_PANEL_SETUP.md)
+- [Backend API and Setup](docs/BACKEND_API.md)
 - [Firebase Authentication Setup](docs/FIREBASE_AUTH_SETUP.md)
 - [Supabase Database & Commerce Setup](docs/SUPABASE_DATABASE_SETUP.md)
 
