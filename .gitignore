@@ -2,13 +2,11 @@
 .env
 .env.*
 !.env.example
-js/config.js
 frontend/storefront/js/config.js
 
 # Dependencies
 node_modules/
 **/node_modules/
-backend/node_modules/
 
 # Build outputs
 dist/

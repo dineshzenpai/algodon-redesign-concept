@@ -2,7 +2,7 @@
   "name": "algo",
   "version": "1.0.0",
   "description": "Algodon Organic Shirts - Editorial Redesign Concept, Storefront, Admin Panel, and API",
-  "main": "index.js",
+  "main": "backend/server.js",
   "scripts": {
     "test": "node --test test/*.test.js",
     "test:db": "node --test test/integration/checkout.database.test.js",
@@ -12,8 +12,8 @@
     "dev": "node --watch backend/server.js",
     "seed:admin": "node scripts/seed-admin.js",
     "grant:firebase-admin": "node scripts/grant-firebase-admin.js",
-    "backend:start": "npm --prefix backend start",
-    "backend:dev": "npm --prefix backend run dev"
+    "backend:start": "node backend/server.js",
+    "backend:dev": "node --watch backend/server.js"
   },
   "repository": {
     "type": "git",
@@ -37,7 +37,6 @@
     "firebase-admin": "^13.5.0",
     "helmet": "^8.3.0",
     "morgan": "^1.12.1",
-    "motion": "^13.2.0",
     "multer": "^2.3.0",
     "nodemailer": "^10.0.9",
     "zod": "^4.6.2"

@@ -1,120 +1,76 @@
-# Algodon Organic — Editorial Redesign Concept
+# Algodon Organic
 
-An editorial redesign concept for **Algodon Organic Shirts**, built with structural minimalism, modern commerce workflows, and full-stack capabilities. The project combines a responsive vanilla storefront, an administrative management portal, an Express API backend.
+Organic shirts storefront, admin panel, and an Express backend using Supabase Auth, PostgreSQL, and Storage. The storefront uses HTML, CSS, and JavaScript; there is no React build step.
 
----
+## Project structure
 
-## Architecture Overview
-
-1. **Editorial Storefront (`/`)**
-   - Pure HTML5, modern CSS3 (with responsive layouts and custom CSS properties), and ES Modules.
-   - Interactive cart drawer, guest and authenticated checkout flows, and localStorage persistence.
-   - Live order tracking with a visual progress stepper (Confirmed → Tailored → Shipped → Delivered).
-   - Instant client-side PDF invoice generation via jsPDF with one-click download.
-
-2. **Admin Portal (`/admin`)**
-   - Role-based staff panel (Super Admin, Manager, Support) for managing catalog items, stock variants, coupons, customer notes, and orders.
-   - Protected API access with session and token validation.
-
-3. **Backend API (`backend/server.js`, `backend/src/`)**
-   - Express server with Helmet security headers, rate limiting, and CORS configuration.
-   - Public catalog, atomic order creation, coupon verification, customer accounts, profiles, saved carts, wishlists, private order history, and newsletter storage.
-   - Email invoice delivery via Nodemailer SMTP.
-   - Firebase Admin SDK for token verification and Supabase PostgreSQL client with RLS.
-
----
-
-## Directory Structure
-
-```
-algodon-redesign-concept/
-├── backend/                             # Express backend application
-│   ├── package.json                     # Backend service dependencies & scripts
-│   ├── server.js                        # Express HTTP server entry point
-│   └── src/                             # Backend source code
-│       ├── admin/                       # Admin router & public checkout RPC
-│       ├── config/                      # Environment schema (Zod) & DB client
-│       └── firebase/                    # Firebase Admin SDK initialization
-├── frontend/                            # Frontend applications and interfaces
-│   ├── admin/                           # Admin portal browser interface
-│   │   ├── admin.html                   # Admin entry point
-│   │   └── assets/                      # Admin stylesheets and JavaScript
-│   ├── storefront/                      # Editorial organic shirts storefront
-│   │   ├── index.html                   # Storefront landing page & SPA host
-│   │   ├── css/                         # Storefront editorial design system
-│   │   ├── js/                          # Storefront interaction & cart scripts
-│   │   ├── img/                         # High-res photography & assets
-│   │   └── lib/                         # Client-side Firebase auth & storage SDK
-├── supabase/                            # Supabase database migrations and schemas
-│   ├── migrations/                      # Versioned schema migrations
-│   └── setup/                           # Sequential commerce setup SQL files
-├── docs/                                # Architecture & setup guides
-├── scripts/                             # Utility scripts (seed admin, claims)
-├── test/                                # Automated security & routing tests
-├── .env.example                         # Environment configuration template
-├── package.json                         # Monorepo root orchestration
-└── README.md
+```text
+backend/
+  server.js             HTTP server
+  src/admin/            Staff authentication and store management
+  src/customer/         Customer authentication and account APIs
+  src/config/           Environment and Supabase configuration
+  src/firebase/         Optional Firebase authentication
+  src/lib/              Shared validation and email helpers
+frontend/
+  storefront/           Storefront pages, scripts, styles, and images
+  admin/                Admin interface
+scripts/                Migrations, admin setup, and verification
+supabase/migrations/    Active, versioned database migrations
+supabase/setup/         Legacy schema used by compatibility tests
+test/                   HTTP, security, and database tests
 ```
 
----
+All Node dependencies are managed by the root `package.json` and `package-lock.json`.
 
-## Getting Started
+## Local setup
 
-### 1. Prerequisites
-- **Node.js** (v18.0.0 or later recommended)
-- **npm** (v9.0.0 or later)
+Use Node.js 22 or later, npm, and PostgreSQL's `psql` command for database administration.
 
-### 2. Installation
-Clone the repository and install root dependencies:
-```bash
+```powershell
 npm install
+Copy-Item .env.example .env
 ```
 
-### 3. Environment Configuration
-1. Copy the environment example to create your secret configuration:
-   ```bash
-   cp .env.example .env
-   ```
-2. Configure your Supabase and Firebase keys in `.env`.
-   *(Note: The server will run in offline fallback/demo mode if external database credentials are not present).*
-3. Run `npm run db:migrate` to apply pending migrations. Public storefront configuration is served automatically at `/js/config.js`; no browser secret file is needed. See [Backend API and Setup](docs/BACKEND_API.md).
+Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `DATABASE_URL`, and `CLIENT_URL` in `.env`. Keep the secret key and database password on the server. Public browser configuration is generated at `/js/config.js`.
 
-### 4. Running the Application
-- **Start the Express Server & Storefront**:
-  ```bash
-  npm run dev      # Runs with Node --watch
-  # or
-  npm start        # Production start
-  ```
-  Visit [http://localhost:3000](http://localhost:3000) for the storefront and [http://localhost:3000/admin](http://localhost:3000/admin) for the admin portal.
+```powershell
+npm run db:migrate
+npm run dev
+```
 
----
+Open http://localhost:3000 for the storefront or http://localhost:3000/admin for the admin panel. `npm start` runs without file watching. The `backend:start` and `backend:dev` scripts are aliases for the same server.
 
-## Available Scripts
+Migrations are recorded with checksums and applied transactionally. For an existing database without migration history, verify its schema before using `--baseline-through=LAST_APPLIED_FILE.sql`; never replay historical migrations over a newer schema. Set `PSQL_PATH` if PostgreSQL is installed outside the default location.
 
-| Script | Command | Purpose |
-| --- | --- | --- |
-| `npm start` | `node backend/server.js` | Starts the Express server |
-| `npm run dev` | `node --watch backend/server.js` | Starts the Express server with file watch |
-| `npm test` | `node --test test/*.test.js` | Runs automated security & route tests |
-| `npm run db:migrate` | `node scripts/migrate.js` | Applies pending migrations and verifies checksums |
-| `npm run verify:backend` | `node scripts/verify-backend.js` | Verifies live backend flows using temporary Supabase records |
-| `npm run backend:start` | `npm --prefix backend start` | Starts backend server via backend package |
-| `npm run seed:admin` | `node scripts/seed-admin.js` | Seeds initial Super Admin credentials |
-| `npm run grant:firebase-admin` | `node scripts/grant-firebase-admin.js` | Grants admin custom claims to Firebase user |
+## Admin and catalog
 
----
+To create the first admin, set `ADMIN_EMAIL` and `ADMIN_PASSWORD` (at least 12 characters), then run:
 
-## Documentation
+```powershell
+npm run seed:admin
+```
 
-Detailed installation and service integration guides are located in the [`docs/`](docs/) folder:
+Remove the seed password from production environments afterward. Create and publish products with real variant stock through the admin panel. Static concept cards have no database inventory and cannot be purchased.
 
-- [Admin Panel Setup Guide](docs/ADMIN_PANEL_SETUP.md)
-- [Backend API and Setup](docs/BACKEND_API.md)
-- [Firebase Authentication Setup](docs/FIREBASE_AUTH_SETUP.md)
-- [Supabase Database & Commerce Setup](docs/SUPABASE_DATABASE_SETUP.md)
+Checkout records pending orders without collecting payment. Prices, coupons, and inventory are verified by the server. Signed-in customers have private order history, profiles, saved carts, and wishlists. Newsletter signups are stored in Supabase. Staff manage catalog, orders, customers, coupons, uploads, roles, and audit logs.
 
----
+Payment/refund fields are administrative records; they do not move money. Cancellation and return statuses do not automatically restock goods. Staff reconcile inventory explicitly.
+
+Firebase is optional and currently deferred. SMTP email requires valid mail credentials; a sample SMTP host alone does not enable delivery. Deployment requires HTTPS, `NODE_ENV=production`, and the correct `CLIENT_URL`.
+
+## Verification
+
+```powershell
+npm test
+npm run test:db
+npm run verify:backend
+```
+
+`npm test` runs HTTP and security regressions. `test:db` uses a disposable local PostgreSQL cluster. `verify:backend` uses the configured Supabase project, creates uniquely named test records, and removes them afterward; it requires admin and database credentials.
+
+`.env`, dependencies, and local `docs/` notes are excluded from Git.
 
 ## License
+
 ISC
