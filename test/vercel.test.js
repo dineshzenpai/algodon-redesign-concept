@@ -3,8 +3,18 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import app from '../app.js';
+import app from '../api/index.js';
 import { buildAssets } from '../scripts/build-vercel.js';
+
+test('Vercel configuration targets an existing explicit Node function', async () => {
+  const config = JSON.parse(await fs.readFile(new URL('../vercel.json', import.meta.url), 'utf8'));
+  assert.equal(config.framework, null);
+  assert.equal(config.outputDirectory, 'public');
+  assert.deepEqual(Object.keys(config.functions), ['api/index.js']);
+  await fs.access(new URL('../api/index.js', import.meta.url));
+  assert.equal(config.functions['api/index.js'].includeFiles, 'frontend/**');
+  assert.deepEqual(config.rewrites, [{ source: '/(.*)', destination: '/api/index' }]);
+});
 
 test('Vercel entry serves storefront, admin, deep links and API without starting a listener on import', async () => {
   const server = app.listen(0, '127.0.0.1');
