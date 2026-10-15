@@ -2,7 +2,6 @@ import { CartItems, AccountHistory } from './Panels.jsx';
 
 export function Header({s}) {
   return <>
-<div className="concept-flag">REDESIGN CONCEPT for algodonorganishirts.com — mockup for internal review, not the live store</div>
 <div className="top-bar">Free shipping across India · Prints ship within 48 hours</div>
 <header id="siteHeader" className={`site${s.scrolled ? " scrolled" : ""}${s.menuOpen ? " menu-open" : ""}`}>
   <button className="hamburger" id="navToggle" aria-label="Open menu" aria-controls="primaryNav" onClick={() => s.setMenuOpen(!s.menuOpen)} aria-expanded={s.menuOpen}>
