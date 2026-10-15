@@ -89,7 +89,7 @@ Copy the Supabase values from your local environment to Render's private environ
 
 ### 3. Connect the deployments
 
-After Render assigns its URL, add `RENDER_BACKEND_URL=https://YOUR-SERVICE.onrender.com` to Vercel's environment variables and redeploy. Use the HTTPS origin without an /api suffix. Vercel forwards /api requests (including /api/config) to Render; browser requests remain on the frontend origin, preserving the admin's secure, HttpOnly cookie flow. The public browser config comes from Render; server secrets stay there.
+The Vercel build defaults to `https://algodon-redesign-concept.onrender.com`. If the Render service URL changes, set `RENDER_BACKEND_URL` in Vercel to the new HTTPS origin without an /api suffix, then redeploy. Vercel forwards /api requests (including /api/config) to Render; browser requests remain on the frontend origin, preserving the admin's secure, HttpOnly cookie flow. The public browser config comes from Render; server secrets stay there.
 
 In Supabase Auth URL Configuration, use your frontend URL as Site URL and allow its /account and /admin redirect URLs for password recovery. Verify Render's /api/health/ready returns 200, then check login and orders through Vercel. Redeploy Vercel after changing RENDER_BACKEND_URL.
 

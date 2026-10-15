@@ -34,7 +34,7 @@ export function deploymentConfig(backendUrl = '') {
   ] };
 }
 
-export async function buildFrontend(destination = path.resolve('.vercel/output'), backendUrl = process.env.RENDER_BACKEND_URL || '') {
+export async function buildFrontend(destination = path.resolve('.vercel/output'), backendUrl = process.env.RENDER_BACKEND_URL || 'https://algodon-redesign-concept.onrender.com') {
   const config = deploymentConfig(backendUrl);
   const assets = path.join(destination, 'static');
   await buildAssets(assets);
@@ -45,6 +45,7 @@ export async function buildFrontend(destination = path.resolve('.vercel/output')
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  await buildFrontend();
-  console.log(process.env.RENDER_BACKEND_URL ? 'Built static frontend with Render API proxy.' : 'Built static frontend preview. Set RENDER_BACKEND_URL and redeploy to enable backend features.');
+  const config = await buildFrontend();
+  const apiRoute = config.routes.find(route => route.src.startsWith('/api'));
+  console.log(apiRoute.status === 503 ? 'Built static frontend preview without a backend.' : `Built static frontend with API proxy to ${new URL(apiRoute.dest.replace(/\/api\/\$1$/, '')).origin}.`);
 }
