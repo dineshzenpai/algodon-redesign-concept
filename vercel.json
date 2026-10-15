@@ -1,15 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
-  "buildCommand": "npm run vercel:build",
-  "outputDirectory": "public",
-  "functions": {
-    "api/index.js": {
-      "includeFiles": "frontend/**",
-      "excludeFiles": "{.env,.env.*,**/.env,**/.env.*,docs/**}"
-    }
-  },
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/api/index" }
-  ]
+  "installCommand": "",
+  "buildCommand": "node frontend/build.mjs"
 }

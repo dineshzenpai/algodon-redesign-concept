@@ -59,11 +59,35 @@ Payment/refund fields are administrative records; they do not move money. Cancel
 
 Firebase is optional and currently deferred. SMTP email requires valid mail credentials; a sample SMTP host alone does not enable delivery. Deployment requires HTTPS, `NODE_ENV=production`, and the correct `CLIENT_URL`.
 
-## Vercel deployment
+## Deployment: Vercel frontend and Render backend
 
-Use the repository root as the project's Root Directory. The checked-in `vercel.json` disables framework autodetection, deploys `api/index.js` as a Node function, and routes application requests to it. `npm run vercel:build` prepares CDN assets in the explicit `public/` output directory; local `npm run dev` is unchanged. This does not use Vercel's Express framework builder.
+Vercel serves static storefront and admin pages only. Render runs Express and all database, authentication, upload, and order APIs. Local development still uses `npm run dev`.
 
-In Vercel's project environment variables, set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NODE_ENV=production`, and `CLIENT_URL=https://YOUR-PRODUCTION-DOMAIN`. Local `.env` files are not deployed. Do not add `ADMIN_PASSWORD` or run admin seeding or database migrations as deployment build steps. Redeploy after changing project settings or environment variables.
+### 1. Deploy the frontend now
+
+In Vercel select Root Directory **frontend**, Framework Preset **Other**, and leave build/output overrides disabled. The included configuration runs `node build.mjs` without installing backend dependencies. It produces the Vercel Build Output API directory with static files and routes; there are no Vercel Functions. The repository root is also supported with its own configuration.
+
+You can deploy before Render exists. Pages and UI load, while API requests return a clear 503 backend-not-connected response. Login, live catalog, saved accounts, uploads, and checkout require the backend. Do not add database credentials or Supabase secret keys to Vercel.
+
+### 2. Create the Render backend
+
+Create a Render Web Service from this repository (or use the included `render.yaml` Blueprint). Use repository root, Node runtime, build command `npm ci --omit=dev`, start command `npm start`, and health check `/api/health/ready`. Render supplies PORT.
+
+Set these environment variables on Render:
+
+- `NODE_ENV=production`
+- `CLIENT_URL=https://YOUR-FRONTEND.vercel.app` (the exact frontend origin)
+- `SUPABASE_URL`
+- `SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SECRET_KEY`
+
+Copy the Supabase values from your local environment to Render's private environment settings. SMTP settings are optional for email notifications. Database migrations and admin seeding are separate setup tasks, never automatic build steps. Existing Supabase data is reused.
+
+### 3. Connect the deployments
+
+After Render assigns its URL, add `RENDER_BACKEND_URL=https://YOUR-SERVICE.onrender.com` to Vercel's environment variables and redeploy. Use the HTTPS origin without an /api suffix. Vercel forwards /api requests and /js/config.js to Render; browser requests remain on the frontend origin, preserving the admin's secure, HttpOnly cookie flow. The public browser config comes from Render; server secrets stay there.
+
+In Supabase Auth URL Configuration, use your frontend URL as Site URL and allow its /account and /admin redirect URLs for password recovery. Verify Render's /api/health/ready returns 200, then check login and orders through Vercel. Redeploy Vercel after changing RENDER_BACKEND_URL.
 
 ## Verification
 

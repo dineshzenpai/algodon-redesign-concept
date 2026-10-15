@@ -13,6 +13,7 @@ dist/
 **/dist/
 /public/
 /.vercel/
+frontend/.vercel/
 
 # Logs
 *.log
