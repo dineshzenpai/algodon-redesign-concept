@@ -13,6 +13,8 @@ test('Vercel configuration targets an existing explicit Node function', async ()
   assert.deepEqual(Object.keys(config.functions), ['api/index.js']);
   await fs.access(new URL('../api/index.js', import.meta.url));
   assert.equal(config.functions['api/index.js'].includeFiles, 'frontend/**');
+  assert.equal(typeof config.functions['api/index.js'].excludeFiles, 'string');
+  assert.equal(config.functions['api/index.js'].excludeFiles, '{.env,.env.*,**/.env,**/.env.*,docs/**}');
   assert.deepEqual(config.rewrites, [{ source: '/(.*)', destination: '/api/index' }]);
 });
 

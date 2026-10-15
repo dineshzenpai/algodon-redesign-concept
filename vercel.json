@@ -6,7 +6,7 @@
   "functions": {
     "api/index.js": {
       "includeFiles": "frontend/**",
-      "excludeFiles": [".env", ".env.*", "**/.env", "**/.env.*", "docs/**"]
+      "excludeFiles": "{.env,.env.*,**/.env,**/.env.*,docs/**}"
     }
   },
   "rewrites": [
