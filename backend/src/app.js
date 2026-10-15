@@ -18,6 +18,8 @@ import { requireFirebaseAuth, requireFirebaseAdmin } from './firebase/admin.js';
 const app = express();
 if (process.env.RENDER === 'true') app.set('trust proxy', 1);
 
+const allowedOrigins = new Set(env.allowedOrigins);
+
 // Global Middlewares
 app.use(helmet({
   contentSecurityPolicy: {
@@ -39,7 +41,17 @@ app.use(helmet({
   },
   strictTransportSecurity: env.nodeEnv === 'production' ? undefined : false
 }));
-app.use(cors({ origin: new URL(env.clientUrl).origin, credentials: true }));
+app.use((req, res, next) => {
+  const origin = req.get('origin');
+  if (origin && !allowedOrigins.has(origin)) {
+    return res.status(403).json({ error: 'Request origin is not allowed.' });
+  }
+  return next();
+});
+app.use(cors({
+  origin: (origin, callback) => callback(null, origin && allowedOrigins.has(origin) ? origin : false),
+  credentials: true
+}));
 app.use('/api/admin', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();

@@ -82,6 +82,7 @@ Set these environment variables on Render:
 
 - `NODE_ENV=production`
 - `CLIENT_URL=https://www.algodonfashion.com` (the exact production frontend origin; use your actual Vercel domain if different)
+- Optional `ALLOWED_ORIGINS=https://preview.example.com,https://another-controlled-domain.example` for additional exact frontend origins; do not use wildcards.
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SECRET_KEY`
@@ -90,7 +91,7 @@ Copy the Supabase values from your local environment to Render's private environ
 
 ### 3. Connect the deployments
 
-The browser calls Render directly using `VITE_API_URL`; Render's credentialed CORS must allow the exact `CLIENT_URL` frontend origin. Admin session cookies use `SameSite=None; Secure` in production so credentialed cross-origin requests can carry the session. Keep Supabase secret and database credentials on Render.
+The browser calls Render directly using `VITE_API_URL`; Render's credentialed CORS allows `CLIENT_URL` and any explicitly configured `ALLOWED_ORIGINS`, and rejects other browser origins. Admin session cookies use `SameSite=None; Secure` in production so credentialed cross-origin requests can carry the session. Admin calls require the `X-Admin-Request: 1` CSRF header. Customer and Firebase admin bearer tokens are provider-issued JWTs verified by Supabase Auth and Firebase Admin SDK; no separate JWT signing secret is needed. Keep Supabase secret and database credentials on Render.
 
 In Supabase Auth URL Configuration, use your frontend URL as Site URL and allow its /account and /admin redirect URLs for password recovery. Verify Render's `/api/health/ready` returns 200, then check login and orders through Vercel. If Vercel blocks deployment because the commit author lacks project access, ask a project owner or authorized administrator to grant access or redeploy the commit; do not bypass Deployment Protection.
 

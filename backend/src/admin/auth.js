@@ -156,8 +156,7 @@ export function requireRole(...roles) {
 export function requireAdminCsrf(req, res, next) {
   if (req.get('x-admin-request') !== '1') return res.status(403).json({ error: 'Request verification failed.' });
   const origin = req.get('origin');
-  const configuredOrigin = new URL(env.clientUrl).origin;
-  if (origin && origin !== configuredOrigin) {
+  if (origin && !env.allowedOrigins.includes(origin)) {
     return res.status(403).json({ error: 'Request origin is not allowed.' });
   }
   return next();

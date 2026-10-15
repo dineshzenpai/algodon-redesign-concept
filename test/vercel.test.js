@@ -81,7 +81,7 @@ test('Vercel CSP allows the API origin and static routes leave API calls to the 
   assert.throws(() => deploymentConfig('http://api.example.test'), /must use HTTPS/);
 });
 
-test('Render API enables credentialed CORS only for its configured frontend origin', async () => {
+test('Render API enables credentialed CORS only for configured frontend origins', async () => {
   const server = app.listen(0, '127.0.0.1');
   await new Promise(resolve => server.once('listening', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -96,6 +96,13 @@ test('Render API enables credentialed CORS only for its configured frontend orig
     assert.equal(response.headers.get('access-control-allow-origin'), origin);
     assert.equal(response.headers.get('access-control-allow-credentials'), 'true');
     const rejected = await fetch(base + '/api/config', { headers:{ Origin:'https://untrusted.example' } });
+    assert.equal(rejected.status, 403);
     assert.notEqual(rejected.headers.get('access-control-allow-origin'), 'https://untrusted.example');
+    const rejectedPreflight = await fetch(base + '/api/admin/auth/login', { method:'OPTIONS', headers:{
+      Origin:'https://untrusted.example',
+      'Access-Control-Request-Method':'POST',
+      'Access-Control-Request-Headers':'content-type,x-admin-request'
+    } });
+    assert.equal(rejectedPreflight.status, 403);
   } finally { await new Promise(resolve => server.close(resolve)); }
 });

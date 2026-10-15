@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import app from '../backend/src/app.js';
 import { setDb } from '../backend/src/config/db.js';
+import { env } from '../backend/src/config/env.js';
 import { escapeHtml, normalizeCart, safeImageUrl } from '../frontend/src/shared/safety.js';
 
 test('cart data cannot introduce HTML attributes or markup', () => {
@@ -35,6 +36,7 @@ test('HTTP security boundaries, coupons, and session revocation', async () => {
     assert.equal((await post('/api/admin/invoice', {}, { 'X-Admin-Request': '1' })).status, 401);
     assert.equal((await post('/api/admin/auth/login', { email: 'test@example.com', password: 'test' })).status, 403);
     assert.equal((await post('/api/admin/auth/login', {}, { 'X-Admin-Request': '1', Origin: 'https://evil.example' })).status, 403);
+    assert.equal((await post('/api/admin/auth/login', {}, { Origin: new URL(env.clientUrl).origin })).status, 403);
 
     const coupon = { code: 'ALGODON10', email: 'buyer@example.com', items: [{ id: 'shirt', qty: 1 }] };
     setDb({ from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: null, error: null }) }) }) }) }) });
