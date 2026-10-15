@@ -59,6 +59,12 @@ Payment/refund fields are administrative records; they do not move money. Cancel
 
 Firebase is optional and currently deferred. SMTP email requires valid mail credentials; a sample SMTP host alone does not enable delivery. Deployment requires HTTPS, `NODE_ENV=production`, and the correct `CLIENT_URL`.
 
+## Vercel deployment
+
+Use the repository root as the project's Root Directory, with Express as the framework. Leave custom Output Directory overrides disabled. The checked-in `vercel.json` selects the root `app.js` entry and runs `npm run vercel:build` to prepare CDN assets in `public/`; local `npm run dev` is unchanged.
+
+In Vercel's project environment variables, set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `NODE_ENV=production`, and `CLIENT_URL=https://YOUR-PRODUCTION-DOMAIN`. Local `.env` files are not deployed. Do not add `ADMIN_PASSWORD` or run admin seeding or database migrations as deployment build steps. Redeploy after changing project settings or environment variables.
+
 ## Verification
 
 ```powershell

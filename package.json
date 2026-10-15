@@ -10,6 +10,7 @@
     "db:migrate": "node scripts/migrate.js",
     "start": "node backend/server.js",
     "dev": "node --watch backend/server.js",
+    "vercel:build": "node scripts/build-vercel.js",
     "seed:admin": "node scripts/seed-admin.js",
     "grant:firebase-admin": "node scripts/grant-firebase-admin.js",
     "backend:start": "node backend/server.js",
@@ -23,6 +24,9 @@
   "author": "",
   "license": "ISC",
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "bugs": {
     "url": "https://github.com/dineshzenpai/algodon-redesign-concept/issues"
   },
