@@ -39,7 +39,7 @@ app.use(helmet({
   },
   strictTransportSecurity: env.nodeEnv === 'production' ? undefined : false
 }));
-app.use(cors({ origin: env.clientUrl }));
+app.use(cors({ origin: new URL(env.clientUrl).origin, credentials: true }));
 app.use('/api/admin', (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   next();

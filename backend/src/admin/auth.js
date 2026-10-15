@@ -8,7 +8,7 @@ const COOKIE = 'algodon_admin_session';
 const cookieOptions = {
   httpOnly: true,
   secure: env.nodeEnv === 'production',
-  sameSite: 'strict',
+  sameSite: env.nodeEnv === 'production' ? 'none' : 'strict',
   path: '/api/admin',
   maxAge: 60 * 60 * 1000
 };

@@ -34,9 +34,10 @@ Use Node.js 22 or later, npm, and PostgreSQL's `psql` command for database admin
 npm ci
 npm ci --prefix frontend
 Copy-Item .env.example .env
+Copy-Item frontend/.env.example frontend/.env.local
 ```
 
-Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `DATABASE_URL`, and `CLIENT_URL` in `.env`. Keep the secret key and database password on the server. The React app obtains only public browser configuration from `/api/config`. Use `CLIENT_URL=http://localhost:5173` for local frontend access.
+Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `DATABASE_URL`, and `CLIENT_URL` in `.env`. Keep the secret key and database password on the server. Use `CLIENT_URL=http://localhost:5173` for local frontend access. Leave `VITE_API_URL` blank in `frontend/.env.local` to use Vite's local `/api` proxy, or set it to `http://localhost:3000` to call Express directly.
 
 ```powershell
 npm run db:migrate
@@ -71,7 +72,7 @@ Vercel serves static storefront and admin pages only. Render runs Express and al
 
 In Vercel select Root Directory **frontend**, Framework Preset **Other**, and leave build/output overrides disabled. The included configuration installs frontend dependencies with `npm ci` and runs `npm run build`. It produces the Vercel Build Output API directory with static files and routes; there are no Vercel Functions. The repository root is also supported with its own configuration.
 
-You can deploy before Render exists. Pages and UI load, while API requests return a clear 503 backend-not-connected response. Login, live catalog, saved accounts, uploads, and checkout require the backend. Do not add database credentials or Supabase secret keys to Vercel.
+Set the Vercel Production environment variable `VITE_API_URL` to the Render backend origin, with no trailing `/api`. Vite embeds this value in the browser bundle during the build, so redeploy after changing it. Do not add database credentials or the Supabase secret key to Vercel.
 
 ### 2. Create the Render backend
 
@@ -80,7 +81,7 @@ Create a Render Web Service from this repository (or use the included `render.ya
 Set these environment variables on Render:
 
 - `NODE_ENV=production`
-- `CLIENT_URL=https://YOUR-FRONTEND.vercel.app` (the exact frontend origin)
+- `CLIENT_URL=https://www.algodonfashion.com` (the exact production frontend origin; use your actual Vercel domain if different)
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SECRET_KEY`
@@ -89,9 +90,9 @@ Copy the Supabase values from your local environment to Render's private environ
 
 ### 3. Connect the deployments
 
-The Vercel build defaults to `https://algodon-redesign-concept.onrender.com`. If the Render service URL changes, set `RENDER_BACKEND_URL` in Vercel to the new HTTPS origin without an /api suffix, then redeploy. Vercel forwards /api requests (including /api/config) to Render; browser requests remain on the frontend origin, preserving the admin's secure, HttpOnly cookie flow. The public browser config comes from Render; server secrets stay there.
+The browser calls Render directly using `VITE_API_URL`; Render's credentialed CORS must allow the exact `CLIENT_URL` frontend origin. Admin session cookies use `SameSite=None; Secure` in production so credentialed cross-origin requests can carry the session. Keep Supabase secret and database credentials on Render.
 
-In Supabase Auth URL Configuration, use your frontend URL as Site URL and allow its /account and /admin redirect URLs for password recovery. Verify Render's /api/health/ready returns 200, then check login and orders through Vercel. Redeploy Vercel after changing RENDER_BACKEND_URL.
+In Supabase Auth URL Configuration, use your frontend URL as Site URL and allow its /account and /admin redirect URLs for password recovery. Verify Render's `/api/health/ready` returns 200, then check login and orders through Vercel. If Vercel blocks deployment because the commit author lacks project access, ask a project owner or authorized administrator to grant access or redeploy the commit; do not bypass Deployment Protection.
 
 ## Verification
 
