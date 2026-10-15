@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { animate, inView, stagger } from '../frontend/storefront/js/motion.js';
+import { animate, inView, stagger } from '../frontend/src/shared/motion.js';
 
 test('native animations preserve transforms, timing and reduced-motion behavior', async () => {
   const original = { window:globalThis.window, Element:globalThis.Element };

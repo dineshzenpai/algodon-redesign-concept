@@ -2,7 +2,6 @@
 .env
 .env.*
 !.env.example
-frontend/storefront/js/config.js
 
 # Dependencies
 node_modules/
@@ -14,6 +13,8 @@ dist/
 /public/
 /.vercel/
 frontend/.vercel/
+frontend/test-results/
+frontend/playwright-report/
 
 # Logs
 *.log

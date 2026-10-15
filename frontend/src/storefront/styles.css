@@ -517,6 +517,8 @@
       box-shadow: var(--shadow);
     }
     nav.primary.open { transform: translateX(0); }
+    header.site.menu-open { z-index: 61; }
+    nav.primary:not(.open) { visibility: hidden; }
   }
 
   .scrim {
@@ -763,7 +765,7 @@
 .modal-image-side {
   flex: 1;
   display: none;
-  background: url('../img/hero.jpg') center/cover no-repeat;
+  background: url('/img/hero.jpg') center/cover no-repeat;
   min-height: 500px;
 }
 @media (min-width: 768px) {

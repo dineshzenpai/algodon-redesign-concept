@@ -4,8 +4,6 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
-import path from 'path';
-import { fileURLToPath } from 'url';
 import { env } from './config/env.js';
 import { checkDatabase } from './config/db.js';
 import { authRouter } from './customer/auth.js';
@@ -16,8 +14,6 @@ import { publicRouter } from './admin/public.js';
 import { requireAdmin, requireAdminCsrf } from './admin/auth.js';
 import { requireFirebaseAuth, requireFirebaseAdmin } from './firebase/admin.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 if (process.env.RENDER === 'true') app.set('trust proxy', 1);
@@ -117,24 +113,6 @@ app.use('/api/account', accountRouter);
 app.use('/api', publicRouter);
 app.use('/api/admin', adminRouter);
 
-app.get(['/admin', '/admin/'], (req, res) => {
-  res.setHeader('Content-Security-Policy', [
-    "default-src 'self'",
-    "script-src 'self'",
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com data:",
-    "img-src 'self' data: blob: https:",
-    "connect-src 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "frame-ancestors 'none'",
-    "form-action 'self'"
-  ].join('; '));
-  res.setHeader('X-Robots-Tag', 'noindex, nofollow');
-  res.sendFile(path.join(__dirname, '..', '..', 'frontend', 'admin', 'admin.html'), { dotfiles: 'ignore' });
-});
-
-
 import nodemailer from 'nodemailer';
 import { z } from 'zod';
 
@@ -202,62 +180,10 @@ app.post('/api/admin/invoice', invoiceLimiter, requireAdminCsrf, requireAdmin, a
     }
 });
 
-const FRONTEND_DIR = path.resolve(__dirname, '..', '..', 'frontend');
+// The React frontend is hosted separately on Vercel (Vite during development).
 app.use('/api', (req, res) => res.status(404).json({ error: 'API endpoint not found.' }));
-const STOREFRONT_DIR = path.join(FRONTEND_DIR, 'storefront');
-const ADMIN_DIR = path.join(FRONTEND_DIR, 'admin');
-
-// Scoped static asset mounts - explicitly prevent exposure of repo root, secrets, and source files
-const staticOptions = {
-  dotfiles: 'ignore',
-  index: false,
-  maxAge: env.nodeEnv === 'production' ? '1h' : 0
-};
-
-// Storefront static assets
-app.use('/css', express.static(path.join(STOREFRONT_DIR, 'css'), staticOptions));
-app.use('/js', express.static(path.join(STOREFRONT_DIR, 'js'), staticOptions));
-app.use('/img', express.static(path.join(STOREFRONT_DIR, 'img'), staticOptions));
-
-// Client-side Firebase libraries mounted from storefront/lib (never exposing backend/src)
-app.use('/src/lib', express.static(path.join(STOREFRONT_DIR, 'lib'), staticOptions));
-app.use('/lib', express.static(path.join(STOREFRONT_DIR, 'lib'), staticOptions));
-
-// Admin static assets
-app.use('/admin/assets', express.static(path.join(ADMIN_DIR, 'assets'), staticOptions));
-
-// Backward compatibility routes for admin assets
-app.get('/css/admin.css', (req, res) => {
-  res.sendFile(path.join(ADMIN_DIR, 'assets', 'admin.css'), { dotfiles: 'ignore' });
-});
-app.get('/js/admin.js', (req, res) => {
-  res.sendFile(path.join(ADMIN_DIR, 'assets', 'admin.js'), { dotfiles: 'ignore' });
-});
-
-// Explicit route for storefront landing page
-app.get(['/', '/index.html'], (req, res) => {
-  res.sendFile(path.join(STOREFRONT_DIR, 'index.html'), { dotfiles: 'ignore' });
-});
-
-// Fallback to index.html for extensionless SPA/storefront routes (e.g. /orders, /wishlist)
-app.use((req, res, next) => {
-  let decodedPath;
-  try {
-    decodedPath = decodeURIComponent(req.path);
-  } catch {
-    return next();
-  }
-
-  // Never serve dotfiles or paths containing hidden segments via SPA fallback
-  if (decodedPath.split('/').some((segment) => segment.startsWith('.'))) {
-    return next();
-  }
-  if ((req.method === 'GET' || req.method === 'HEAD') && req.accepts('html') && !path.extname(decodedPath)) {
-    res.sendFile(path.join(STOREFRONT_DIR, 'index.html'), { dotfiles: 'ignore' });
-  } else {
-    next();
-  }
-});
+app.get('/', (req, res) => res.json({ status: 'API is running', frontend: env.clientUrl }));
+app.use((req, res) => res.status(404).json({ error:'Endpoint not found.' }));
 
 // Global Error Handler
 app.use((err, req, res, next) => {

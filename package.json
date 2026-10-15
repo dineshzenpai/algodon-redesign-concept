@@ -9,12 +9,15 @@
     "verify:backend": "node scripts/verify-backend.js",
     "db:migrate": "node scripts/migrate.js",
     "start": "node backend/server.js",
-    "dev": "node --watch backend/server.js",
+    "dev": "node scripts/dev.js",
     "vercel:build": "node scripts/build-vercel.js",
     "seed:admin": "node scripts/seed-admin.js",
     "grant:firebase-admin": "node scripts/grant-firebase-admin.js",
     "backend:start": "node backend/server.js",
-    "backend:dev": "node --watch backend/server.js"
+    "backend:dev": "node --watch backend/server.js",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "test:frontend": "npm --prefix frontend test"
   },
   "repository": {
     "type": "git",

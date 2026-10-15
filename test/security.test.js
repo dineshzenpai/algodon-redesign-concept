@@ -130,26 +130,24 @@ describe('Task 2: Confined Static Asset Serving', () => {
     }
   });
 
-  it('serves legitimate public storefront landing page at / and /index.html', async () => {
+  it('serves API status at root instead of a legacy storefront', async () => {
     const resRoot = await fetch(`${baseUrl}/`);
     assert.strictEqual(resRoot.status, 200);
-    const bodyRoot = await resRoot.text();
-    assert.match(bodyRoot, /ALGODON/i);
+    assert.equal((await resRoot.json()).status, 'API is running');
 
     const resIndex = await fetch(`${baseUrl}/index.html`);
-    assert.strictEqual(resIndex.status, 200);
+    assert.strictEqual(resIndex.status, 404);
   });
 
-  it('serves admin panel entry point at /admin with secure headers', async () => {
+  it('keeps secure headers on requests for the separately hosted admin panel', async () => {
     const res = await fetch(`${baseUrl}/admin`);
-    assert.strictEqual(res.status, 200);
-    assert.strictEqual(res.headers.get('x-robots-tag'), 'noindex, nofollow');
+    assert.strictEqual(res.status, 404);
     const csp = res.headers.get('content-security-policy') || '';
     assert.match(csp, /default-src 'self'/);
     assert.match(csp, /frame-ancestors 'none'/);
   });
 
-  it('serves legitimate static assets (CSS, JS, images, client modules)', async () => {
+  it('does not expose retired frontend assets through the backend', async () => {
     const staticPaths = [
       '/css/styles.css',
       '/css/admin.css',
@@ -168,19 +166,17 @@ describe('Task 2: Confined Static Asset Serving', () => {
       const res = await fetch(`${baseUrl}${p}`);
       assert.strictEqual(
         res.status,
-        200,
-        `Expected 200 for public static asset ${p}, received ${res.status}`
+        404,
+        `Expected 404 for retired frontend asset ${p}, received ${res.status}`
       );
     }
   });
 
-  it('falls back to index.html for extensionless SPA navigation routes', async () => {
+  it('does not turn frontend navigation into backend HTML responses', async () => {
     const res = await fetch(`${baseUrl}/orders`, {
       headers: { Accept: 'text/html' }
     });
-    assert.strictEqual(res.status, 200);
-    const body = await res.text();
-    assert.match(body, /ALGODON/i);
+    assert.strictEqual(res.status, 404);
   });
 });
 

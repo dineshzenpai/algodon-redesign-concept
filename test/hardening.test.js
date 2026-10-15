@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import app from '../backend/src/app.js';
 import { setDb } from '../backend/src/config/db.js';
-import { escapeHtml, normalizeCart, safeImageUrl } from '../frontend/storefront/js/safety.js';
+import { escapeHtml, normalizeCart, safeImageUrl } from '../frontend/src/shared/safety.js';
 
 test('cart data cannot introduce HTML attributes or markup', () => {
   assert.equal(escapeHtml('<img src=x onerror="alert(1)">'), '&lt;img src=x onerror=&quot;alert(1)&quot;&gt;');
@@ -28,7 +28,7 @@ test('HTTP security boundaries, coupons, and session revocation', async () => {
     const csp = page.headers.get('content-security-policy');
     assert.match(csp, /script-src-attr 'none'/);
     assert.match(csp, /object-src 'none'/);
-    const html = fs.readFileSync(new URL('../frontend/storefront/index.html', import.meta.url), 'utf8');
+    const html = fs.readFileSync(new URL('../frontend/index.html', import.meta.url), 'utf8');
     assert.doesNotMatch(html, /<script type="importmap">/);
     assert.ok(!csp.split(';').find(directive => directive.trim().startsWith('script-src ')).includes("'unsafe-inline'"));
     assert.equal((await post('/api/invoice', { email: 'victim@example.com' })).status, 410);
