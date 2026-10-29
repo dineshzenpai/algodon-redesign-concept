@@ -15,11 +15,11 @@ export function deploymentConfig(apiUrl = '') {
     throw new Error('VITE_API_URL must use HTTPS in the production build.');
   }
   const csp = [
-    "default-src 'self'", "script-src 'self' https://cdn.jsdelivr.net https://www.gstatic.com https://apis.google.com",
+    "default-src 'self'", "script-src 'self' https://cdn.jsdelivr.net",
     "script-src-attr 'none'", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:", "img-src 'self' https: data: blob:",
-    `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''} https://*.supabase.co wss://*.supabase.co https://*.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com`,
-    "frame-src https://*.firebaseapp.com https://accounts.google.com", "object-src 'none'",
+    `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''} https://*.supabase.co wss://*.supabase.co`,
+    "frame-src 'self'", "object-src 'none'",
     "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'", 'upgrade-insecure-requests'
   ].join('; ');
   return { version:3, routes:[

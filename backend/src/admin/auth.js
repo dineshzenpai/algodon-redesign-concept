@@ -2,7 +2,6 @@ import { createHash } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 import { env } from '../config/env.js';
 import { getDb } from '../config/db.js';
-import { verifyFirebaseIdToken } from '../firebase/admin.js';
 
 const COOKIE = 'algodon_admin_session';
 const cookieOptions = {
@@ -79,55 +78,6 @@ export async function logoutAdmin(req, res) {
 }
 
 export async function requireAdmin(req, res, next) {
-  const bearer = /^Bearer\s+(.+)$/i.exec(req.get('authorization') || '');
-  if (bearer) {
-    let claims;
-    try {
-      claims = await verifyFirebaseIdToken(bearer[1]);
-    } catch (error) {
-      return res.status(401).json({ error: 'The Firebase ID token is invalid or expired.' });
-    }
-
-    if (!claims || claims.role !== 'admin') {
-      return res.status(403).json({ error: 'Firebase admin access is required.' });
-    }
-
-    // Require an authorized, active admin record in public.admin_users.
-    // The database schema uses user_id (UUID) as the primary key.
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!claims.uid || !uuidRegex.test(claims.uid)) {
-      return res.status(403).json({ error: 'Admin access has been removed or is not configured.' });
-    }
-
-    try {
-      const { data: admin, error: roleError } = await getDb()
-        .from('admin_users')
-        .select('role')
-        .eq('user_id', claims.uid)
-        .maybeSingle();
-
-      if (roleError) {
-        console.error('[admin] Firebase admin lookup failed:', roleError.message);
-        return res.status(503).json({ error: 'Admin session could not be verified.' });
-      }
-
-      const validRoles = ['super_admin', 'manager', 'support'];
-      if (!admin || !validRoles.includes(admin.role)) {
-        return res.status(403).json({ error: 'Admin access has been removed or is not configured.' });
-      }
-
-      req.admin = {
-        id: claims.uid,
-        email: claims.email || '',
-        role: admin.role,
-        authProvider: 'firebase'
-      };
-      return next();
-    } catch (error) {
-      console.error('[admin] Firebase admin verification failed:', error.message);
-      return res.status(503).json({ error: 'Admin session could not be verified.' });
-    }
-  }
   const token = req.cookies && req.cookies[COOKIE];
   if (!token) return res.status(401).json({ error: 'Sign in to continue.' });
   try {
@@ -164,12 +114,12 @@ export function requireAdminCsrf(req, res, next) {
 
 export async function writeAudit(actor, action, entityType, entityId, details = {}) {
   const { error } = await getDb().from('admin_activity_logs').insert({
-    actor_id: actor.authProvider === 'firebase' ? null : actor.id,
+    actor_id: actor.id,
     actor_email: actor.email || '',
     action,
     entity_type: entityType,
     entity_id: entityId == null ? null : String(entityId),
-    details: actor.authProvider === 'firebase' ? { ...details, authProvider: 'firebase' } : details
+    details
   });
   if (error) console.error('[admin] Activity log write failed:', error.message);
 }

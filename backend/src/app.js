@@ -12,7 +12,6 @@ import { createMailer } from './lib/mail.js';
 import { adminRouter } from './admin/routes.js';
 import { publicRouter } from './admin/public.js';
 import { requireAdmin, requireAdminCsrf } from './admin/auth.js';
-import { requireFirebaseAuth, requireFirebaseAdmin } from './firebase/admin.js';
 
 
 const app = express();
@@ -25,13 +24,13 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'https://cdn.jsdelivr.net', 'https://www.gstatic.com', 'https://apis.google.com'],
+      scriptSrc: ["'self'", 'https://cdn.jsdelivr.net'],
       scriptSrcAttr: ["'none'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
       imgSrc: ["'self'", 'https:', 'data:', 'blob:'],
-      connectSrc: ["'self'", ...(env.supabase.url ? [env.supabase.url, env.supabase.url.replace(/^https:/, 'wss:')] : []), 'https://*.googleapis.com', 'https://*.firebaseio.com', 'wss://*.firebaseio.com'],
-      frameSrc: ['https://*.firebaseapp.com', 'https://accounts.google.com'],
+      connectSrc: ["'self'", ...(env.supabase.url ? [env.supabase.url, env.supabase.url.replace(/^https:/, 'wss:')] : [])],
+      frameSrc: ["'self'"],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
@@ -76,12 +75,11 @@ app.use('/api', limiter);
 
 // API Routes
 app.get('/js/config.js', (req, res) => {
-  res.type('application/javascript').set('Cache-Control', 'no-store').send(`window.APP_CONFIG = ${JSON.stringify({ SUPABASE_URL: env.supabase.url, SUPABASE_PUBLISHABLE_KEY: env.supabase.anonKey, FIREBASE_ENABLED: Boolean(env.firebase.projectId && !env.firebase.projectId.startsWith('your_')) }).replace(/</g, '\\u003c')};`);
+  res.type('application/javascript').set('Cache-Control', 'no-store').send(`window.APP_CONFIG = ${JSON.stringify({ SUPABASE_URL: env.supabase.url, SUPABASE_PUBLISHABLE_KEY: env.supabase.anonKey }).replace(/</g, '\\u003c')};`);
 });
 app.get('/api/config', (req, res) => res.json({
   supabase: { url: env.supabase.url, publishableKey: env.supabase.anonKey },
-  checkout: { paymentsEnabled: false },
-  firebaseEnabled: Boolean(env.firebase.projectId && !env.firebase.projectId.startsWith('your_'))
+  checkout: { paymentsEnabled: false }
 }));
 app.get('/api/health', (req, res) => {
   res.json({ status: 'API is running' });
@@ -93,31 +91,6 @@ app.get('/api/health/ready', async (req, res) => {
     status: connected ? 'ready' : 'unavailable',
     database: connected ? 'connected' : 'unavailable'
   });
-});
-
-// Firebase web keys are public by design. Only the six browser config values
-// leave the server; service account credentials stay in firebase-admin.
-app.get('/api/firebase-config', (req, res) => {
-  const f = env.firebase;
-  const config = [
-    ['FIREBASE_API_KEY', f.apiKey],
-    ['FIREBASE_AUTH_DOMAIN', f.authDomain],
-    ['FIREBASE_PROJECT_ID', f.projectId],
-    ['FIREBASE_STORAGE_BUCKET', f.storageBucket],
-    ['FIREBASE_MESSAGING_SENDER_ID', f.messagingSenderId],
-    ['FIREBASE_APP_ID', f.appId]
-  ];
-  const missing = config.filter(([, value]) => !value).map(([name]) => name);
-  if (missing.length) return res.status(503).json({ error: 'Firebase web app configuration is incomplete.', missing });
-  res.setHeader('Cache-Control', 'public, max-age=300');
-  res.json({ apiKey: f.apiKey, authDomain: f.authDomain, projectId: f.projectId,
-    storageBucket: f.storageBucket, messagingSenderId: f.messagingSenderId, appId: f.appId });
-});
-
-// A claim-protected namespace is available to Firebase-authenticated admin
-// APIs. The established /api/admin cookie flow stays intact for the current panel.
-app.get('/api/firebase-admin/whoami', requireFirebaseAuth, requireFirebaseAdmin, (req, res) => {
-  res.json({ uid: req.user.uid, email: req.user.email, admin: true });
 });
 
 app.use('/api/auth', authRouter);

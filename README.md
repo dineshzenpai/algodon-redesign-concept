@@ -10,7 +10,6 @@ backend/
   src/admin/            Staff authentication and store management
   src/customer/         Customer authentication and account APIs
   src/config/           Environment and Supabase configuration
-  src/firebase/         Optional Firebase authentication
   src/lib/              Shared validation and email helpers
 frontend/
   src/storefront/       React storefront, account, cart, and checkout
@@ -44,7 +43,7 @@ npm run db:migrate
 npm run dev
 ```
 
-Open http://localhost:5173 for the storefront or http://localhost:5173/admin for the admin panel. Unauthenticated visits to the admin route are sent to the customer sign-in at `/account`; authenticated staff can continue to use the admin panel. `npm run dev` starts both Vite (5173) and Express (3000), with API requests proxied to Express. `npm start` starts only the production backend. To run them in separate terminals, use `npm run backend:dev` and `npm run frontend:dev`; set CLIENT_URL to the frontend origin in .env.
+Open http://localhost:5173 for the storefront or http://localhost:5173/admin for the admin panel. The `/admin` route presents admin sign-in and verifies credentials and role through Supabase before showing the panel. `npm run dev` starts both Vite (5173) and Express (3000), with API requests proxied to Express. `npm start` starts only the production backend. To run them in separate terminals, use `npm run backend:dev` and `npm run frontend:dev`; set CLIENT_URL to the frontend origin in .env.
 
 Migrations are recorded with checksums and applied transactionally. For an existing database without migration history, verify its schema before using `--baseline-through=LAST_APPLIED_FILE.sql`; never replay historical migrations over a newer schema. Set `PSQL_PATH` if PostgreSQL is installed outside the default location.
 
@@ -62,7 +61,7 @@ Checkout records pending orders without collecting payment. Prices, coupons, and
 
 Payment/refund fields are administrative records; they do not move money. Cancellation and return statuses do not automatically restock goods. Staff reconcile inventory explicitly.
 
-Firebase is optional and currently deferred. SMTP email requires valid mail credentials; a sample SMTP host alone does not enable delivery. Deployment requires HTTPS, `NODE_ENV=production`, and the correct `CLIENT_URL`.
+SMTP email requires valid mail credentials; a sample SMTP host alone does not enable delivery. Deployment requires HTTPS, `NODE_ENV=production`, and the correct `CLIENT_URL`.
 
 ## Deployment: Vercel frontend and Render backend
 
@@ -91,7 +90,7 @@ Copy the Supabase values from your local environment to Render's private environ
 
 ### 3. Connect the deployments
 
-The browser calls Render directly using `VITE_API_URL`; Render's credentialed CORS allows `CLIENT_URL` and any explicitly configured `ALLOWED_ORIGINS`, and rejects other browser origins. Admin session cookies use `SameSite=None; Secure` in production so credentialed cross-origin requests can carry the session. Admin calls require the `X-Admin-Request: 1` CSRF header. Customer and Firebase admin bearer tokens are provider-issued JWTs verified by Supabase Auth and Firebase Admin SDK; no separate JWT signing secret is needed. Keep Supabase secret and database credentials on Render.
+The browser calls Render directly using `VITE_API_URL`; Render's credentialed CORS allows `CLIENT_URL` and any explicitly configured `ALLOWED_ORIGINS`, and rejects other browser origins. Admin session cookies use `SameSite=None; Secure` in production so credentialed cross-origin requests can carry the session. Admin calls require the `X-Admin-Request: 1` CSRF header. Customer and admin authentication use Supabase Auth; no separate JWT signing secret is needed. Keep Supabase secret and database credentials on Render.
 
 In Supabase Auth URL Configuration, use your frontend URL as Site URL and allow its /account and /admin redirect URLs for password recovery. Verify Render's `/api/health/ready` returns 200, then check login and orders through Vercel. If Vercel blocks deployment because the commit author lacks project access, ask a project owner or authorized administrator to grant access or redeploy the commit; do not bypass Deployment Protection.
 

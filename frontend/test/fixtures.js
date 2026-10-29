@@ -14,7 +14,7 @@ export async function mockApi(page,{catalog=false,signedAdmin=false,adminRole='s
     calls.push({path,method,body,headers:req.headers()});
     const reply=(json,status=200)=>route.fulfill({status,json});
     if(offline)return reply({error:'The backend is not connected yet. Please try again later.'},503);
-    if(path==='/api/config')return reply({supabase:{url:'https://example.supabase.co',publishableKey:'sb_publishable_test_public_key'},firebaseEnabled:false});
+    if(path==='/api/config')return reply({supabase:{url:'https://example.supabase.co',publishableKey:'sb_publishable_test_public_key'},checkout:{paymentsEnabled:false}});
     if(path==='/api/products')return reply({data:catalog?[product]:[]});
     if(path==='/api/auth/login'||path==='/api/auth/signup')return reply({user,session});
     if(path==='/api/auth/password-reset')return reply({message:'If this account exists, password reset instructions have been sent.'});
