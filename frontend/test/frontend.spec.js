@@ -43,8 +43,15 @@ test('account deep links render React and remain usable before Render is connect
   for(const route of ['/orders/','/wishlist/','/account/']){await page.goto(route);await expect(page.locator('#accountDrawer')).toBeVisible();await expect(page.locator('.hero')).toBeVisible();}
   await page.locator('#signInEmail').fill(customer.email);await page.locator('#signInPassword').fill('TestPassword123!');await page.locator('#signInForm button[type="submit"]').click();await expect(page.locator('#signInError')).toContainText("aren't reachable");expect(errors).toEqual([]);
 });
-test('admin login route opens the normal customer sign-in',async({page})=>{
-  await mockApi(page);await page.goto('/admin');await expect(page).toHaveURL(/\/account$/);await expect(page.locator('#accountDrawer')).toBeVisible();await expect(page.locator('#signInForm')).toBeVisible();await expect(page.locator('#loginForm')).toHaveCount(0);
+test('admin login route verifies admin credentials before opening the panel',async({page})=>{
+  const {calls}=await mockApi(page);await page.goto('/admin');await expect(page).toHaveURL(/\/admin$/);await expect(page.locator('#adminLoginForm')).toBeVisible();await expect(page.locator('#signInForm')).toHaveCount(0);
+  await page.locator('#adminEmail').fill('admin@example.com');await page.locator('#adminPassword').fill('AdminPassword123!');await page.locator('#adminLoginSubmit').click();
+  await expect(page.locator('.topbar h1')).toHaveText('Overview');expect(calls.find(call=>call.path==='/api/admin/auth/login').body).toEqual({email:'admin@example.com',password:'AdminPassword123!'});expect(calls.filter(call=>call.path==='/api/admin/me')).toHaveLength(2);expect(calls.find(call=>call.path==='/api/admin/auth/login').headers['x-admin-request']).toBe('1');
+});
+test('admin login keeps the panel locked when credentials are rejected',async({page})=>{
+  await mockApi(page);await page.route('**/api/admin/auth/login',route=>route.fulfill({status:401,contentType:'application/json',body:JSON.stringify({error:'Email or password is incorrect.'})}));
+  await page.goto('/admin');await page.locator('#adminEmail').fill('admin@example.com');await page.locator('#adminPassword').fill('WrongPassword123!');await page.locator('#adminLoginSubmit').click();
+  await expect(page.locator('#adminLoginError')).toHaveText('Email or password is incorrect.');await expect(page.locator('#adminLoginForm')).toBeVisible();await expect(page.locator('.shell')).toHaveCount(0);await expect(page).toHaveURL(/\/admin$/);
 });
 test('admin product editor and all management screens use React and API actions',async({page})=>{
   const errors=[];page.on('pageerror',error=>errors.push(error.message));const {calls}=await mockApi(page,{signedAdmin:true,catalog:true});await page.goto('/admin');await page.locator('[data-page="products"]').click();await page.locator('#addProduct').click();await page.locator('#f-name').fill('New Cotton Shirt');await expect(page.locator('#f-slug')).toHaveValue('new-cotton-shirt');await page.locator('#f-price').fill('1900');await page.locator('#editForm button[type="submit"]').click();await expect(page.locator('#activeModal')).toHaveCount(0);expect(calls.some(call=>call.path==='/api/admin/products'&&call.method==='POST')).toBe(true);
