@@ -44,7 +44,7 @@ npm run db:migrate
 npm run dev
 ```
 
-Open http://localhost:5173 for the storefront or http://localhost:5173/admin for the admin panel. `npm run dev` starts both Vite (5173) and Express (3000), with API requests proxied to Express. `npm start` starts only the production backend. To run them in separate terminals, use `npm run backend:dev` and `npm run frontend:dev`; set CLIENT_URL to the frontend origin in .env.
+Open http://localhost:5173 for the storefront or http://localhost:5173/admin for the admin panel. Unauthenticated visits to the admin route are sent to the customer sign-in at `/account`; authenticated staff can continue to use the admin panel. `npm run dev` starts both Vite (5173) and Express (3000), with API requests proxied to Express. `npm start` starts only the production backend. To run them in separate terminals, use `npm run backend:dev` and `npm run frontend:dev`; set CLIENT_URL to the frontend origin in .env.
 
 Migrations are recorded with checksums and applied transactionally. For an existing database without migration history, verify its schema before using `--baseline-through=LAST_APPLIED_FILE.sql`; never replay historical migrations over a newer schema. Set `PSQL_PATH` if PostgreSQL is installed outside the default location.
 
