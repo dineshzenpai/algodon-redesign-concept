@@ -2,7 +2,7 @@ import { CartItems, AccountHistory } from './Panels.jsx';
 
 export function Header({s}) {
   return <>
-<div className="top-bar">Free shipping across India · Prints ship within 48 hours · <a href="/admin" id="topAdminLink" style={{color:"inherit",textDecoration:"underline",marginLeft:"6px",fontWeight:600}}>Admin Dashboard ↗</a></div>
+<div className="top-bar">Free shipping across India · Prints ship within 48 hours</div>
 <header id="siteHeader" className={`site${s.scrolled ? " scrolled" : ""}${s.menuOpen ? " menu-open" : ""}`}>
   <button className="hamburger" id="navToggle" aria-label="Open menu" aria-controls="primaryNav" onClick={() => s.setMenuOpen(!s.menuOpen)} aria-expanded={s.menuOpen}>
     <span></span><span></span><span></span>
@@ -12,7 +12,6 @@ export function Header({s}) {
     <a href="#edit" data-nav-link onClick={() => s.setMenuOpen(false)}>Prints</a>
     <a href="#story" data-nav-link onClick={() => s.setMenuOpen(false)}>Our Story</a>
     <a href="#" id="sizeGuideLink" data-nav-link onClick={event => { event.preventDefault(); s.open("size"); }}>Size Guide</a>
-    <a href="/admin" id="primaryAdminLink" data-nav-link onClick={() => s.setMenuOpen(false)} style={{color:"var(--accent)",fontWeight:600}}>Admin ↗</a>
   </nav>
   <a href="#" className="wordmark" onClick={event => { event.preventDefault(); window.scrollTo({top: 0, behavior: 'smooth'}); }}>ALGODON<span className="sub">ORGANIC</span></a>
   <nav className="icons">
@@ -20,7 +19,7 @@ export function Header({s}) {
     <div className="account-nav">
       <button className="icon-btn" id="accountToggle" aria-label="Account" aria-haspopup="true" onClick={() => s.user ? s.setAccountMenu(!s.accountMenu) : s.openAccount()} aria-expanded={s.accountMenu}><img id="accountAvatar" alt="" hidden /><span id="accountNavLabel">{s.user ? (s.user.user_metadata?.full_name?.split(" ")[0] || "Account") : "Account"}</span></button>
       <div className="account-menu" id="accountMenu" hidden={!s.accountMenu}>
-        <a href="/orders" onClick={event => { event.preventDefault(); s.setAccountMenu(false); s.showHistory("orders"); }}>Orders</a><a href="/wishlist" onClick={event => { event.preventDefault(); s.setAccountMenu(false); s.showHistory("wishlist"); }}>Wishlist</a><a href="/admin" onClick={() => s.setAccountMenu(false)} style={{color:"var(--accent)",fontWeight:600}}>Admin Dashboard ↗</a><button type="button" id="navLogoutBtn" onClick={s.signOut}>Logout</button>
+        <a href="/orders" onClick={event => { event.preventDefault(); s.setAccountMenu(false); s.showHistory("orders"); }}>Orders</a><a href="/wishlist" onClick={event => { event.preventDefault(); s.setAccountMenu(false); s.showHistory("wishlist"); }}>Wishlist</a><a href="/admin" onClick={() => s.setAccountMenu(false)} style={{color:"var(--ink-soft)"}}>Store Admin ↗</a><button type="button" id="navLogoutBtn" onClick={s.signOut}>Logout</button>
       </div>
     </div>
     <button className="icon-btn" id="cartToggle" aria-label="Open cart" onClick={() => s.open("cart")}>Cart<span id="cartCount">{s.cart.reduce((total,item) => total + item.qty, 0)}</span></button>
