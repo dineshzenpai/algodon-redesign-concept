@@ -7,6 +7,15 @@ import { conceptProducts } from './catalog.js';
 const CART = 'algodon_demo_cart', OWNER = 'algodon_customer_cart_owner', ADDRESS = 'algodon_demo_address';
 const route = () => location.pathname.replace(/\/$/,'');
 const emptyAddress = {name:'',email:'',phone:'',address1:'',address2:'',city:'',state:'',pin:''};
+function generateUuid() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
 function cartOwner() {
   try { const owner=localStorage.getItem(OWNER); if (!owner) return null; try { return JSON.parse(owner); } catch { return owner; } } catch { return null; }
 }
@@ -31,9 +40,23 @@ export function useStorefront() {
   const customerId = useRef(null), cartRef = useRef(cart), toastTimer = useRef();
   cartRef.current = cart;
   const notify = useCallback(message => { setToast(message); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''),4000); },[]);
-  const close = useCallback(() => { setPanel(null); setMenuOpen(false); setAccountMenu(false); },[]);
+  const close = useCallback(() => {
+    setPanel(null);
+    setMenuOpen(false);
+    setAccountMenu(false);
+    if (typeof window !== 'undefined' && ['/orders', '/wishlist', '/account'].includes(location.pathname)) {
+      history.pushState(null, '', '/');
+    }
+  }, []);
   const open = useCallback(value => { setMenuOpen(false); setAccountMenu(false); setPanel(value); },[]);
-  const openAccount = () => { setGuest(false); setAccountView('shipping'); open('account'); };
+  const openAccount = () => {
+    setGuest(false);
+    setAccountView('shipping');
+    open('account');
+    if (typeof window !== 'undefined' && location.pathname !== '/account') {
+      history.pushState(null, '', '/account');
+    }
+  };
   const changeAuth = mode => { setAuthMode(mode); setAuthError(''); };
   const accountFetch = useCallback(async (url,options = {}) => {
     const session = client ? (await client.auth.getSession()).data.session : null;
@@ -103,16 +126,33 @@ export function useStorefront() {
     writeStorage(CART,cart); setCoupon(null);
     if (!user) return;
     const timer = setTimeout(() => {
-      accountFetch('/api/account/cart',{method:'PUT',body:JSON.stringify({items:cart.map(({id,size,qty}) => ({id,size,qty}))})}).catch(error => notify('Cart could not be saved: '+error.message));
+      const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const syncItems = cart.filter(item => uuidPattern.test(item.id)).map(({id,size,qty}) => ({id,size,qty}));
+      accountFetch('/api/account/cart',{method:'PUT',body:JSON.stringify({items:syncItems})}).catch(error => notify('Cart could not be saved: '+error.message));
     },300);
     return () => clearTimeout(timer);
   },[cart,cartReady,user?.id,accountFetch,notify]);
   useEffect(() => {
-    if (!authReady) return;
-    const current = route();
-    if (current === '/orders' || current === '/wishlist') { setAccountView(current.slice(1)); setGuest(!user); setPanel('account'); }
-    else if (current === '/account') setPanel('account');
-  },[authReady,user?.id]);
+    const handlePopState = () => {
+      const current = route();
+      if (current === '/orders' || current === '/wishlist') {
+        setAccountView(current.slice(1));
+        setGuest(!user);
+        setPanel('account');
+      } else if (current === '/account') {
+        setAccountView('shipping');
+        setGuest(false);
+        setPanel('account');
+      } else if (!current || current === '/') {
+        setPanel(null);
+      }
+    };
+    if (authReady) {
+      handlePopState();
+    }
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [authReady, user?.id]);
   useEffect(() => {
     if (authMode !== 'recovery' || !authReady) return;
     setPanel('account'); setGuest(false);
@@ -152,7 +192,14 @@ export function useStorefront() {
     } catch(error) { notify(error.message); }
   }
   function showShipping() { setGuest(!user); setAccountView('shipping'); open('account'); }
-  function showHistory(view) { setGuest(!user); setAccountView(view); open('account'); }
+  function showHistory(view) {
+    setGuest(!user);
+    setAccountView(view);
+    open('account');
+    if (typeof window !== 'undefined' && location.pathname !== '/' + view) {
+      history.pushState(null, '', '/' + view);
+    }
+  }
   async function saveAddress(event) {
     event.preventDefault(); setAddressError(''); setBusy('address');
     try {
@@ -186,7 +233,7 @@ export function useStorefront() {
     const input = {items:cart.map(({id,size,qty}) => ({id,size,qty})),customer:address,coupon_code:coupon?.code || ''};
     const fingerprint = JSON.stringify(input);
     let pending = readStorage('algodon_pending_checkout',null,sessionStorage);
-    if (!pending || pending.fingerprint !== fingerprint) { pending={fingerprint,key:crypto.randomUUID()}; writeStorage('algodon_pending_checkout',pending,sessionStorage); }
+    if (!pending || pending.fingerprint !== fingerprint) { pending={fingerprint,key:generateUuid()}; writeStorage('algodon_pending_checkout',pending,sessionStorage); }
     try {
       const result = await accountFetch('/api/checkout/orders',{method:'POST',headers:{'Idempotency-Key':pending.key},body:JSON.stringify(input)});
       if (!result.data?.id) throw new Error('Your order could not be confirmed. Please try again.');

@@ -13,7 +13,9 @@ export function Products(){
   async function importCsv(event){
     const file=event.target.files[0];if(!file)return;
     try{
-      const rows=parseCsv(await file.text()).map(row=>({...row,price:Number(row.price),sale_price:row.sale_price?Number(row.sale_price):null,stock_count:Number(row.stock_count||0),low_stock_threshold:Number(row.low_stock_threshold||5),published:row.published==='true',out_of_stock_hidden:row.out_of_stock_hidden==='true',tags:JSON.parse(row.tags||'[]'),variants:JSON.parse(row.variants||'[]'),images:JSON.parse(row.images||'[]'),category_id:row.category_id||null}));
+      const safeArray=val=>{if(!val)return [];try{const p=JSON.parse(val);return Array.isArray(p)?p:[p];}catch{return String(val).split(',').map(s=>s.trim()).filter(Boolean);}};
+      const safeVariants=val=>{if(!val)return [];try{const p=JSON.parse(val);return Array.isArray(p)?p:[];}catch{return [];}};
+      const rows=parseCsv(await file.text()).map(row=>({...row,price:Number(row.price),sale_price:row.sale_price?Number(row.sale_price):null,stock_count:Number(row.stock_count||0),low_stock_threshold:Number(row.low_stock_threshold||5),published:row.published==='true',out_of_stock_hidden:row.out_of_stock_hidden==='true',tags:safeArray(row.tags),variants:safeVariants(row.variants),images:safeArray(row.images),category_id:row.category_id||null}));
       const result=await a.api('/products/import',{method:'POST',body:JSON.stringify({products:rows})});a.notify(result.imported+' products imported.');a.refresh();
     }catch(error){a.notify(error.message,true);}finally{event.target.value='';}
   }

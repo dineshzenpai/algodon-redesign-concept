@@ -25,6 +25,7 @@ export function deploymentConfig(apiUrl = '') {
   return { version:3, routes:[
     { src:'/(.*)', headers:{ 'Content-Security-Policy':csp, 'X-Content-Type-Options':'nosniff', 'X-Frame-Options':'DENY', 'Referrer-Policy':'strict-origin-when-cross-origin' }, continue:true },
     { src:'/admin/?', dest:'/index.html' },
+    { src:'/admin/.*', dest:'/index.html' },
     { src:'/(account|orders|wishlist)/?', dest:'/index.html' },
     { handle:'filesystem' }
   ] };

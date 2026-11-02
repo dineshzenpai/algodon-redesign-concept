@@ -71,8 +71,15 @@ adminRouter.post('/auth/logout', requireAdminCsrf, logoutAdmin);
 adminRouter.post('/auth/password-reset', resetLimiter, requireAdminCsrf, async (req, res) => {
   const email = String(req.body.email || '').trim().toLowerCase();
   if (!z.string().email().safeParse(email).success) return res.status(200).json({ message: 'If that admin account exists, password reset instructions have been sent.' });
-  const { data: users, error: usersError } = await getDb().auth.admin.listUsers({ page: 1, perPage: 1000 });
-  const adminUser = !usersError && users.users.find((user) => user.email && user.email.toLowerCase() === email);
+  let adminUser = null;
+  let page = 1;
+  while (page <= 10) {
+    const { data: users, error: usersError } = await getDb().auth.admin.listUsers({ page, perPage: 1000 });
+    if (usersError || !users?.users?.length) break;
+    adminUser = users.users.find((user) => user.email && user.email.toLowerCase() === email);
+    if (adminUser || users.users.length < 1000) break;
+    page++;
+  }
   if (adminUser) {
     const { data: admin } = await getDb().from('admin_users').select('user_id').eq('user_id', adminUser.id).maybeSingle();
     if (admin) {
@@ -93,7 +100,8 @@ adminRouter.post('/auth/password-update', resetLimiter, requireAdminCsrf, async 
   const schema = z.object({ accessToken: z.string().min(20), password: z.string().min(12).max(128) });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, 'Use a password with at least 12 characters.');
-  const { data: { user }, error } = await getDb().auth.getUser(parsed.data.accessToken);
+  const { data, error } = await getDb().auth.getUser(parsed.data.accessToken);
+  const user = data?.user;
   if (error || !user) return fail(res, 401, 'This password reset link has expired. Request another one.');
   const { data: admin } = await getDb().from('admin_users').select('role').eq('user_id', user.id).maybeSingle();
   if (!admin) return fail(res, 403, 'This account does not have admin access.');
@@ -178,18 +186,18 @@ adminRouter.post('/categories', requireRole('super_admin', 'manager'), async (re
   const { data, error } = await getDb().from('categories').insert(p.data).select().single(); if (error) return dbError(error, res);
   await writeAudit(req.admin, 'category.create', 'category', data.id, { fields: Object.keys(p.data) }); return res.status(201).json({ data });
 });
-adminRouter.patch('/categories/:id', requireRole('super_admin', 'manager'), async (req, res, next) => {
-  if (req.params.id === 'reorder') return next();
-  const p = categorySchema.partial().safeParse(req.body); if (!p.success) return fail(res, 400, p.error.issues[0].message);
-  const { data, error } = await getDb().from('categories').update({ ...p.data, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().maybeSingle();
-  if (error) return dbError(error, res); if (!data) return fail(res, 404, 'Category not found.'); await writeAudit(req.admin, 'category.update', 'category', data.id, { fields: Object.keys(p.data) }); return res.json({ data });
-});
-adminRouter.delete('/categories/:id', requireRole('super_admin', 'manager'), async (req, res) => { const { error, count } = await getDb().from('categories').delete({ count: 'exact' }).eq('id', req.params.id); if (error) return dbError(error, res); if (!count) return fail(res, 404, 'Category not found.'); await writeAudit(req.admin, 'category.delete', 'category', req.params.id); return res.json({ ok: true }); });
 adminRouter.patch('/categories/reorder', requireRole('super_admin', 'manager'), async (req, res) => {
   const p = z.array(z.object({ id: idSchema, sort_order: z.number().int().nonnegative() })).max(500).safeParse(req.body.items); if (!p.success) return fail(res, 400, 'Invalid category order.');
   const { error } = await getDb().rpc('admin_reorder_categories', { p_items: p.data }); if (error) return dbError(error, res);
   await writeAudit(req.admin, 'category.reorder', 'category', null, { count: p.data.length }); return res.json({ ok: true });
 });
+adminRouter.patch('/categories/:id', requireRole('super_admin', 'manager'), async (req, res) => {
+  if (!idSchema.safeParse(req.params.id).success) return fail(res, 400, 'Invalid category ID.');
+  const p = categorySchema.partial().safeParse(req.body); if (!p.success) return fail(res, 400, p.error.issues[0].message);
+  const { data, error } = await getDb().from('categories').update({ ...p.data, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().maybeSingle();
+  if (error) return dbError(error, res); if (!data) return fail(res, 404, 'Category not found.'); await writeAudit(req.admin, 'category.update', 'category', data.id, { fields: Object.keys(p.data) }); return res.json({ data });
+});
+adminRouter.delete('/categories/:id', requireRole('super_admin', 'manager'), async (req, res) => { if (!idSchema.safeParse(req.params.id).success) return fail(res, 400, 'Invalid category ID.'); const { error, count } = await getDb().from('categories').delete({ count: 'exact' }).eq('id', req.params.id); if (error) return dbError(error, res); if (!count) return fail(res, 404, 'Category not found.'); await writeAudit(req.admin, 'category.delete', 'category', req.params.id); return res.json({ ok: true }); });
 
 // Orders, notes, fulfilment and manual payment/refund recording
 adminRouter.get('/orders', async (req, res) => {
@@ -282,7 +290,18 @@ adminRouter.delete('/images', requireRole('super_admin', 'manager'), async (req,
 });
 
 adminRouter.get('/activity', requireRole('super_admin'), async (req, res) => { const { page, limit, from, to } = pageParams(req); const { data, count, error } = await listQuery('admin_activity_logs').order('created_at', { ascending: false }).range(from, to); return error ? dbError(error, res) : res.json({ data, page, limit, total: count || 0 }); });
-adminRouter.get('/staff', requireRole('super_admin'), async (req, res) => { const { data, error } = await getDb().from('admin_users').select('user_id,role,created_at').order('created_at'); if (error) return dbError(error, res); const { data: users, error: usersError } = await getDb().auth.admin.listUsers({ page: 1, perPage: 1000 }); if (usersError) return dbError(usersError, res); const emails = new Map(users.users.map(u=>[u.id,u.email])); return res.json({ data: data.map(a=>({...a,email:emails.get(a.user_id)||''})) }); });
+adminRouter.get('/staff', requireRole('super_admin'), async (req, res) => {
+  const { data, error } = await getDb().from('admin_users').select('user_id,role,created_at').order('created_at');
+  if (error) return dbError(error, res);
+  const emails = new Map();
+  await Promise.all((data || []).map(async (a) => {
+    try {
+      const { data: u } = await getDb().auth.admin.getUserById(a.user_id);
+      if (u?.user?.email) emails.set(a.user_id, u.user.email);
+    } catch {}
+  }));
+  return res.json({ data: data.map(a=>({...a,email:emails.get(a.user_id)||''})) });
+});
 adminRouter.get('/newsletter', requireRole('super_admin', 'manager'), async (req, res) => {
   const { page, limit, from, to } = pageParams(req);
   const { data, error, count } = await getDb().from('newsletter_signups').select('email,created_at', { count: 'exact' }).order('created_at', { ascending: false }).range(from, to);

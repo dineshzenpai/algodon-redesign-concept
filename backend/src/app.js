@@ -4,13 +4,15 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
+import nodemailer from 'nodemailer';
+import { z } from 'zod';
 import { env } from './config/env.js';
 import { checkDatabase } from './config/db.js';
 import { authRouter } from './customer/auth.js';
 import { accountRouter } from './customer/routes.js';
 import { createMailer } from './lib/mail.js';
 import { adminRouter } from './admin/routes.js';
-import { publicRouter } from './admin/public.js';
+import { publicRouter } from './storefront/routes.js';
 import { requireAdmin, requireAdminCsrf } from './admin/auth.js';
 
 
@@ -95,11 +97,8 @@ app.get('/api/health/ready', async (req, res) => {
 
 app.use('/api/auth', authRouter);
 app.use('/api/account', accountRouter);
-app.use('/api', publicRouter);
 app.use('/api/admin', adminRouter);
-
-import nodemailer from 'nodemailer';
-import { z } from 'zod';
+app.use('/api', publicRouter);
 
 const invoiceRequestSchema = z.object({
   email: z.string().email(),
@@ -119,8 +118,6 @@ const invoiceLimiter = rateLimit({
   max: 10,
 });
 
-const transporter = createMailer();
-
 function escapeHtml(str) {
     return String(str).replace(/[&<>"']/g, (c) => ({
         '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -131,13 +128,14 @@ function escapeHtml(str) {
 app.post('/api/invoice', invoiceLimiter, (req, res) => {
   res.status(410).json({ error: 'Public invoice emailing is disabled. Contact the store for an invoice.' });
 });
-app.post('/api/admin/invoice', invoiceLimiter, requireAdminCsrf, requireAdmin, async (req, res) => {
+app.post('/api/admin/invoice', invoiceLimiter, requireAdmin, requireAdminCsrf, async (req, res) => {
     const parsed = invoiceRequestSchema.safeParse(req.body);
     if (!parsed.success) {
         return res.status(400).json({ error: 'Invalid invoice request' });
     }
     try {
-        if (!transporter) return res.status(503).json({ error: 'Invoice email is not configured.' });
+        const mailer = createMailer();
+        if (!mailer) return res.status(503).json({ error: 'Invoice email is not configured.' });
         const { email, name, invoiceNo, subtotal, cart } = parsed.data;
 
         let itemsHtml = cart.map(item => `<li>${escapeHtml(item.name)} (Size: ${escapeHtml(item.size)}) x${item.qty} - Rs. ${(item.qty * item.price).toLocaleString('en-IN')}</li>`).join('');
@@ -156,7 +154,7 @@ app.post('/api/admin/invoice', invoiceLimiter, requireAdminCsrf, requireAdmin, a
             </div>`
         };
 
-        let info = await transporter.sendMail(mailOptions);
+        let info = await mailer.sendMail(mailOptions);
         console.log('Preview URL: ' + nodemailer.getTestMessageUrl(info));
         res.json({ success: true, previewUrl: nodemailer.getTestMessageUrl(info) });
     } catch (err) {

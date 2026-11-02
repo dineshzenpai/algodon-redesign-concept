@@ -35,7 +35,7 @@ export function AccountHistory({s}) {
     try { await s.accountFetch('/api/account/wishlist/'+encodeURIComponent(item.product_id),{method:'DELETE'}); setVersion(value => value+1); } catch(error) { s.notify(error.message); }
   }}>Remove</button></p>) : <p>Your wishlist is empty.</p>;
   if (!data.length) return <div style={{textAlign:'center',padding:'28px 8px'}}><p style={{fontWeight:700,marginBottom:6,fontFamily:"'Fraunces',serif",fontSize:'1.15rem'}}>No orders placed yet</p><p style={{color:'var(--ink-soft)',fontSize:'.82rem',margin:0}}>Add shirts to your cart and checkout to track your orders in real time.</p></div>;
-  return data.toSorted((a,b) => Date.parse(b.created_at)-Date.parse(a.created_at)).map(order => {
+  return [...data].sort((a,b) => Date.parse(b.created_at)-Date.parse(a.created_at)).map(order => {
     const status=(order.status || 'Pending').toLowerCase(), stages=['confirmed','packed','shipped','delivered'], current=stages.indexOf(status);
     return <div className="order-card" key={order.id}>
       <div className="order-header"><div><div className="order-id">{order.id}</div><div style={{fontSize:'.75rem',color:'var(--ink-soft)'}}>{new Date(order.created_at).toLocaleString('en-IN')}</div></div><span className="order-status-badge">{order.status || 'Pending'}</span></div>

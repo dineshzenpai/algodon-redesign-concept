@@ -13,13 +13,13 @@ export function Header({s}) {
     <a href="#story" data-nav-link onClick={() => s.setMenuOpen(false)}>Our Story</a>
     <a href="#" id="sizeGuideLink" data-nav-link onClick={event => { event.preventDefault(); s.open("size"); }}>Size Guide</a>
   </nav>
-  <a href="#" className="wordmark">ALGODON<span className="sub">ORGANIC</span></a>
+  <a href="#" className="wordmark" onClick={event => { event.preventDefault(); window.scrollTo({top: 0, behavior: 'smooth'}); }}>ALGODON<span className="sub">ORGANIC</span></a>
   <nav className="icons">
     <button className="icon-btn" id="searchToggle" aria-label="Search" onClick={() => s.open("search")}>Search</button>
     <div className="account-nav">
       <button className="icon-btn" id="accountToggle" aria-label="Account" aria-haspopup="true" onClick={() => s.user ? s.setAccountMenu(!s.accountMenu) : s.openAccount()} aria-expanded={s.accountMenu}><img id="accountAvatar" alt="" hidden /><span id="accountNavLabel">{s.user ? (s.user.user_metadata?.full_name?.split(" ")[0] || "Account") : "Account"}</span></button>
       <div className="account-menu" id="accountMenu" hidden={!s.accountMenu}>
-        <a href="/orders">Orders</a><a href="/wishlist">Wishlist</a><button type="button" id="navLogoutBtn" onClick={s.signOut}>Logout</button>
+        <a href="/orders" onClick={event => { event.preventDefault(); s.setAccountMenu(false); s.showHistory("orders"); }}>Orders</a><a href="/wishlist" onClick={event => { event.preventDefault(); s.setAccountMenu(false); s.showHistory("wishlist"); }}>Wishlist</a><button type="button" id="navLogoutBtn" onClick={s.signOut}>Logout</button>
       </div>
     </div>
     <button className="icon-btn" id="cartToggle" aria-label="Open cart" onClick={() => s.open("cart")}>Cart<span id="cartCount">{s.cart.reduce((total,item) => total + item.qty, 0)}</span></button>
@@ -309,10 +309,10 @@ export function Footer({s}) {
 <footer>
   <div className="footer-grid">
     <div>
-      <a href="#" className="wordmark">ALGODON<span className="sub">ORGANIC</span></a>
+      <a href="#" className="wordmark" onClick={event => { event.preventDefault(); window.scrollTo({top: 0, behavior: 'smooth'}); }}>ALGODON<span className="sub">ORGANIC</span></a>
       <p className="blurb">Small-batch organic cotton shirts in hand block-print motifs, cut and finished in India.</p>
       <form className="newsletter" id="newsletterForm" onSubmit={s.subscribe}>
-        <input type="email" id="newsletterEmail" placeholder="Your email" required aria-label="Email for 10% off" />
+        <input type="email" id="newsletterEmail" name="newsletterEmail" placeholder="Your email" required aria-label="Email for 10% off" />
         <button type="submit" id="newsletterSubmit" disabled={s.busy === "newsletter"}>Get 10% Off</button>
       </form>
       <p className="newsletter-msg" id="newsletterMsg">{s.newsletterMessage}</p>

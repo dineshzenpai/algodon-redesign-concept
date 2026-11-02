@@ -72,7 +72,13 @@ export const env = {
   clientUrl: _env.data.CLIENT_URL,
   allowedOrigins: [...new Set([
     new URL(_env.data.CLIENT_URL).origin,
-    ..._env.data.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean)
+    ..._env.data.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean),
+    ...(_env.data.NODE_ENV === 'development' ? [
+      'http://localhost:5173',
+      'http://127.0.0.1:5173',
+      'http://localhost:3000',
+      'http://127.0.0.1:3000'
+    ] : [])
   ])],
   supabase: {
     url: _env.data.SUPABASE_URL || '',

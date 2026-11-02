@@ -7,9 +7,8 @@ const COOKIE = 'algodon_admin_session';
 const cookieOptions = {
   httpOnly: true,
   secure: env.nodeEnv === 'production',
-  sameSite: env.nodeEnv === 'production' ? 'none' : 'strict',
-  path: '/api/admin',
-  maxAge: 60 * 60 * 1000
+  sameSite: env.nodeEnv === 'production' ? 'none' : 'lax',
+  path: '/api/admin'
 };
 function digest(value) {
   return createHash('sha256').update(`${env.supabase.serviceRoleKey}:${value}`).digest('hex');
@@ -19,8 +18,8 @@ function sessionHash(token) {
 }
 
 export async function loginAdmin(req, res) {
-  const email = String(req.body.email || '').trim().toLowerCase();
-  const password = String(req.body.password || '');
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  const password = String(req.body?.password || '');
   if (!email || !password || email.length > 320 || password.length > 1024) {
     return res.status(400).json({ error: 'Enter a valid email and password.' });
   }
@@ -42,15 +41,20 @@ export async function loginAdmin(req, res) {
   });
   const { data: signedIn, error: authError } = await authClient.auth.signInWithPassword({ email, password });
   const user = signedIn && signedIn.user;
-  if (authError || !user) {
+  if (authError || !user || !signedIn?.session?.access_token) {
     await db.rpc('admin_record_login_failure', { p_email_hash: emailHash, p_ip_hash: ipHash });
     return res.status(401).json({ error: 'Email or password is incorrect.' });
   }
 
   const { data: admin, error: roleError } = await db.from('admin_users')
     .select('role').eq('user_id', user.id).maybeSingle();
-  if (roleError || !admin) {
-    await authClient.auth.signOut();
+  if (roleError) {
+    console.error('[admin] Role check failed on login:', roleError.message);
+    await authClient.auth.signOut().catch(() => {});
+    return res.status(503).json({ error: 'Admin sign-in is temporarily unavailable.' });
+  }
+  if (!admin) {
+    await authClient.auth.signOut().catch(() => {});
     return res.status(403).json({ error: 'This account does not have admin access.' });
   }
 
@@ -68,23 +72,31 @@ export async function loginAdmin(req, res) {
 }
 
 export async function logoutAdmin(req, res) {
-  const token = req.cookies && req.cookies[COOKIE];
-  if (token) {
-    const { error } = await getDb().from('admin_sessions').delete().eq('token_hash', sessionHash(token));
-    if (error) return res.status(503).json({ error: 'Sign-out could not be completed. Please try again.' });
+  const token = req.cookies?.[COOKIE];
+  try {
+    if (token) {
+      const { error } = await getDb().from('admin_sessions').delete().eq('token_hash', sessionHash(token));
+      if (error) console.error('[admin] Failed to delete session on logout:', error.message);
+    }
+  } finally {
+    res.clearCookie(COOKIE, cookieOptions);
   }
-  res.clearCookie(COOKIE, cookieOptions);
   return res.json({ ok: true });
 }
 
 export async function requireAdmin(req, res, next) {
-  const token = req.cookies && req.cookies[COOKIE];
+  const cookieToken = req.cookies?.[COOKIE];
+  const authHeader = req.get('authorization') || '';
+  const bearerMatch = /^Bearer\s+(\S+)$/i.exec(authHeader);
+  const token = cookieToken || (bearerMatch ? bearerMatch[1] : null);
+
   if (!token) return res.status(401).json({ error: 'Sign in to continue.' });
   try {
     const { data: active, error: sessionError } = await getDb().rpc('admin_session_active', { p_token_hash: sessionHash(token) });
     if (sessionError) return res.status(503).json({ error: 'Admin session could not be verified.' });
     if (active !== true) return res.status(401).json({ error: 'Your session has expired. Sign in again.' });
-    const { data: { user }, error } = await getDb().auth.getUser(token);
+    const { data, error } = await getDb().auth.getUser(token);
+    const user = data?.user;
     if (error || !user) return res.status(401).json({ error: 'Your session has expired. Sign in again.' });
     const { data: admin, error: roleError } = await getDb().from('admin_users')
       .select('role').eq('user_id', user.id).maybeSingle();
@@ -114,12 +126,12 @@ export function requireAdminCsrf(req, res, next) {
 
 export async function writeAudit(actor, action, entityType, entityId, details = {}) {
   const { error } = await getDb().from('admin_activity_logs').insert({
-    actor_id: actor.id,
-    actor_email: actor.email || '',
+    actor_id: actor?.id || null,
+    actor_email: actor?.email || '',
     action,
     entity_type: entityType,
     entity_id: entityId == null ? null : String(entityId),
-    details
+    details: details || {}
   });
   if (error) console.error('[admin] Activity log write failed:', error.message);
 }

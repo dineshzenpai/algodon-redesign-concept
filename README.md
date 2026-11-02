@@ -9,6 +9,7 @@ backend/
   server.js             HTTP server
   src/admin/            Staff authentication and store management
   src/customer/         Customer authentication and account APIs
+  src/storefront/       Public catalog, coupons, newsletter, and checkout
   src/config/           Environment and Supabase configuration
   src/lib/              Shared validation and email helpers
 frontend/
