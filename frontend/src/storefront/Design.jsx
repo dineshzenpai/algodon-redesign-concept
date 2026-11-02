@@ -343,7 +343,7 @@ export function Footer({s}) {
     </div>
   </div>
   <div className="footer-bottom">
-    <span>© Algodon Organic</span>
+    <span>© Algodon Organic · <a href="/admin" style={{color:'inherit',textDecoration:'none',opacity:0.8}}>Store Admin ↗</a></span>
     <span>Design concept — prepared for review</span>
   </div>
 </footer>

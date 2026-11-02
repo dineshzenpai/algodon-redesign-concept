@@ -66,12 +66,27 @@ if (!_env.success) {
   process.exit(1);
 }
 
+function getOriginVariants(urlStr) {
+  try {
+    const url = new URL(urlStr);
+    const origins = [url.origin];
+    if (url.hostname.startsWith('www.')) {
+      origins.push(`${url.protocol}//${url.hostname.slice(4)}${url.port ? ':' + url.port : ''}`);
+    } else if (!url.hostname.includes('localhost') && !url.hostname.includes('127.0.0.1')) {
+      origins.push(`${url.protocol}//www.${url.hostname}${url.port ? ':' + url.port : ''}`);
+    }
+    return origins;
+  } catch {
+    return [];
+  }
+}
+
 export const env = {
   port: parseInt(_env.data.PORT, 10),
   nodeEnv: _env.data.NODE_ENV,
   clientUrl: _env.data.CLIENT_URL,
   allowedOrigins: [...new Set([
-    new URL(_env.data.CLIENT_URL).origin,
+    ...getOriginVariants(_env.data.CLIENT_URL),
     ..._env.data.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean),
     ...(_env.data.NODE_ENV === 'development' ? [
       'http://localhost:5173',
