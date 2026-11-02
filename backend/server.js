@@ -1,9 +1,11 @@
 import app from './src/app.js';
 import { connectDB } from './src/config/db.js';
 import { env } from './src/config/env.js';
+import { ensureInitialAdmin } from './src/admin/auth.js';
 
 async function start() {
   await connectDB();
+  await ensureInitialAdmin();
 
   const server = app.listen(env.port, () => {
     console.log(`[api] Algodon API listening on http://localhost:${env.port} (${env.nodeEnv})`);

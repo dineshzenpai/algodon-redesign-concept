@@ -17,6 +17,54 @@ function sessionHash(token) {
   return createHash('sha256').update(token).digest('hex');
 }
 
+export async function ensureInitialAdmin() {
+  const db = getDb();
+  if (!db || !env.supabase.serviceRoleKey) return;
+  try {
+    const { count, error } = await db.from('admin_users').select('user_id', { count: 'exact', head: true });
+    if (error) {
+      console.warn('[admin] Could not check admin_users table:', error.message);
+      return;
+    }
+    if (count === 0) {
+      const email = (process.env.ADMIN_EMAIL || 'admin@example.com').trim().toLowerCase();
+      const password = process.env.ADMIN_PASSWORD || 'AdminPassword123!';
+      console.log(`[admin] Bootstrapping initial Super Admin account (${email})...`);
+
+      const { data: listed } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      let user = listed?.users?.find(u => u.email?.toLowerCase() === email);
+      if (!user) {
+        const { data: created, error: createError } = await db.auth.admin.createUser({
+          email,
+          password,
+          email_confirm: true
+        });
+        if (createError) {
+          console.error('[admin] Failed to create initial admin user:', createError.message);
+          return;
+        }
+        user = created?.user;
+      } else {
+        await db.auth.admin.updateUserById(user.id, { password, email_confirm: true });
+      }
+
+      if (user?.id) {
+        const { error: insertError } = await db.from('admin_users').upsert({
+          user_id: user.id,
+          role: 'super_admin'
+        }, { onConflict: 'user_id' });
+        if (insertError) {
+          console.error('[admin] Failed to grant super_admin role:', insertError.message);
+        } else {
+          console.log(`[admin] Successfully configured initial Super Admin (${email})`);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[admin] Admin bootstrap failed:', err.message);
+  }
+}
+
 export async function loginAdmin(req, res) {
   const email = String(req.body?.email || '').trim().toLowerCase();
   const password = String(req.body?.password || '');
@@ -39,11 +87,30 @@ export async function loginAdmin(req, res) {
   const authClient = createClient(env.supabase.url, env.supabase.anonKey, {
     auth: { autoRefreshToken: false, persistSession: false, detectSessionInUrl: false }
   });
-  const { data: signedIn, error: authError } = await authClient.auth.signInWithPassword({ email, password });
-  const user = signedIn && signedIn.user;
+  let { data: signedIn, error: authError } = await authClient.auth.signInWithPassword({ email, password });
+  let user = signedIn && signedIn.user;
+
+  // If login failed, check if admin_users is unseeded and matches the default admin
+  if (authError || !user) {
+    const defaultEmail = (process.env.ADMIN_EMAIL || 'admin@example.com').trim().toLowerCase();
+    const defaultPassword = process.env.ADMIN_PASSWORD || 'AdminPassword123!';
+    if (email === defaultEmail && password === defaultPassword) {
+      await ensureInitialAdmin();
+      const retry = await authClient.auth.signInWithPassword({ email, password });
+      if (retry.data?.user && retry.data?.session?.access_token) {
+        signedIn = retry.data;
+        user = retry.data.user;
+        authError = null;
+      }
+    }
+  }
+
   if (authError || !user || !signedIn?.session?.access_token) {
     await db.rpc('admin_record_login_failure', { p_email_hash: emailHash, p_ip_hash: ipHash });
-    return res.status(401).json({ error: 'Email or password is incorrect.' });
+    const msg = authError?.message?.toLowerCase().includes('confirm')
+      ? 'Your email address has not been confirmed yet. Please verify your email.'
+      : 'Email or password is incorrect.';
+    return res.status(401).json({ error: msg });
   }
 
   const { data: admin, error: roleError } = await db.from('admin_users')
