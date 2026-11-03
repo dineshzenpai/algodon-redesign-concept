@@ -182,7 +182,13 @@ export function useStorefront() {
       const stored = await client.auth.setSession(result.session);
       if (stored.error) throw stored.error;
       setUser(stored.data.user); setGuest(false); close();
-    } catch(error) { setAuthError(error.message); }
+    } catch(error) {
+      if (data?.email && /admin/i.test(String(data.email))) {
+        setAuthError((error.message || 'Authentication failed') + ' — Looking for store management? Sign in at the Store Admin Dashboard (/admin).');
+      } else {
+        setAuthError(error.message);
+      }
+    }
     finally { setBusy(''); }
   }
   async function signOut() {

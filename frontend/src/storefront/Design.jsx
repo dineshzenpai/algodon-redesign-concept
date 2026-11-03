@@ -70,7 +70,14 @@ export function AccountDrawer({s}) {
 
     <div className="account-form-pane">
       <div className="account-body" id="accountSignedOut" style={{"display": "flex", "flexDirection": "column", "justifyContent": "center", "height": "100%"}} hidden={s.authMode !== "recovery" && Boolean(s.user || s.guest)}>
-        <h2 id="authTitle" style={{"textAlign": "center", "marginBottom": "24px", "fontFamily": "'Fraunces', serif", "fontSize": "2rem", "fontWeight": "300"}}>{({signin:"Sign In",signup:"Create Account",reset:"Reset password",recovery:"Set a new password"})[s.authMode]}</h2>
+        <div style={{"display": "flex", "background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "4px", "marginBottom": "22px", "border": "1px solid var(--line)"}}>
+          <button type="button" style={{"flex": "1", "padding": "8px 12px", "border": "none", "borderRadius": "5px", "background": "var(--accent)", "color": "#fff", "fontWeight": "600", "fontSize": "0.82rem", "cursor": "default"}}>Customer</button>
+          <a href="/admin" style={{"flex": "1", "padding": "8px 12px", "textAlign": "center", "textDecoration": "none", "color": "var(--ink-soft)", "fontSize": "0.82rem", "fontWeight": "500", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "4px"}}>Store Admin ↗</a>
+        </div>
+        <div style={{"textAlign": "center", "marginBottom": "20px"}}>
+          <h2 id="authTitle" style={{"margin": "0", "fontFamily": "'Fraunces', serif", "fontSize": "2rem", "fontWeight": "300"}}>{({signin:"Customer Sign In",signup:"Create Account",reset:"Reset password",recovery:"Set a new password"})[s.authMode]}</h2>
+          <p style={{"margin": "6px 0 0", "fontSize": "0.82rem", "color": "var(--ink-soft)"}}>Access your shipping details, order tracking, and wishlist</p>
+        </div>
 
         <button type="button" id="googleSignInBtn" className="btn btn-ghost" style={{"width": "100%", "justifyContent": "center", "marginBottom": "16px", "display": "flex", "gap": "10px", "alignItems": "center"}} hidden={true}>
           <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"></path><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"></path><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"></path><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"></path></svg>
@@ -85,16 +92,25 @@ export function AccountDrawer({s}) {
         <form className="checkout-form" id="signInForm" style={{"border": "none", "padding": "0"}} hidden={!["signin","reset"].includes(s.authMode)} onSubmit={s.submitAuth}>
           <div className="field">
             <label htmlFor="signInEmail">Email</label>
-            <input type="email" id="signInEmail" name="email" autoComplete="email" required />
+            <input type="email" id="signInEmail" name="email" autoComplete="email" placeholder="customer@example.com" required />
           </div>
           <div className="field" id="signInPasswordField" hidden={s.authMode === "reset"}>
             <div style={{"display": "flex", "justifyContent": "space-between", "alignItems": "baseline"}}>
               <label htmlFor="signInPassword">Password</label>
               <button type="button" id="forgotPasswordBtn" style={{"font": "inherit", "fontSize": ".75rem", "color": "var(--ink-soft)", "border": "0", "padding": "0", "background": "none", "cursor": "pointer"}} onClick={() => s.changeAuth("reset")}>Forgot password?</button>
             </div>
-            <input type="password" id="signInPassword" name="password" autoComplete="current-password" required={s.authMode !== "reset"} />
+            <input type="password" id="signInPassword" name="password" autoComplete="current-password" placeholder="••••••••••••" required={s.authMode !== "reset"} />
           </div>
-          <p className="field-error" id="signInError">{s.authError}</p>
+          {s.authError && (
+            <div className="field-error" id="signInError" style={{"display": "flex", "flexDirection": "column", "gap": "6px", "padding": "8px 10px", "background": "rgba(196, 92, 60, 0.1)", "borderRadius": "4px", "border": "1px solid rgba(196, 92, 60, 0.2)"}}>
+              <span>{s.authError}</span>
+              {/admin/i.test(s.authError) && (
+                <a href="/admin" style={{"color": "var(--ink)", "fontWeight": "700", "textDecoration": "underline", "fontSize": "0.82rem"}}>
+                  Go to Store Admin Sign In →
+                </a>
+              )}
+            </div>
+          )}
           <button type="submit" className="btn btn-solid" style={{"justifyContent": "center", "padding": "14px", "marginTop": "8px"}} disabled={Boolean(s.busy)}>{s.busy === "auth" ? "Please wait…" : s.authMode === "reset" ? "Send reset link" : "Sign In"}</button>
         </form>
 
@@ -125,10 +141,16 @@ export function AccountDrawer({s}) {
           <p className="field-error" id="recoveryError" role="status">{s.authError}</p>
           <button type="submit" className="btn btn-solid" style={{"justifyContent": "center"}} disabled={Boolean(s.busy)}>Update password</button>
         </form>
-        <div id="authLinks" style={{"textAlign": "center", "marginTop": "24px", "fontSize": "0.85rem", "display": "flex", "flexDirection": "column", "gap": "10px"}} hidden={s.authMode === "recovery"}>
+        <div id="authLinks" style={{"textAlign": "center", "marginTop": "20px", "fontSize": "0.85rem", "display": "flex", "flexDirection": "column", "gap": "8px"}} hidden={s.authMode === "recovery"}>
           <button type="button" id="authToggleBtn" style={{"background": "none", "border": "none", "borderBottom": "1px solid transparent", "color": "var(--ink-soft)", "cursor": "pointer", "padding": "0", "font": "inherit"}} onClick={() => s.changeAuth(s.authMode === "signin" ? "signup" : "signin")}>{s.authMode === "signin" ? "Create an account" : "Back to sign in"}</button>
           <button type="button" id="guestShippingBtn" style={{"background": "none", "border": "none", "borderBottom": "1px solid var(--line-strong)", "color": "var(--accent)", "cursor": "pointer", "padding": "4px 0", "font": "inherit", "fontSize": "0.82rem", "alignSelf": "center"}} onClick={s.showShipping}>Continue as Guest (Shipping Details) →</button>
           <button type="button" id="guestOrdersBtn" style={{"background": "none", "border": "none", "color": "var(--ink-soft)", "cursor": "pointer", "padding": "4px 0", "font": "inherit", "fontSize": "0.82rem", "alignSelf": "center"}} onClick={() => s.showHistory("orders")}>View Placed Orders →</button>
+        </div>
+        <div style={{"marginTop": "18px", "paddingTop": "14px", "borderTop": "1px solid var(--line)", "textAlign": "center"}}>
+          <p style={{"margin": "0 0 4px", "fontSize": "0.78rem", "color": "var(--ink-soft)"}}>Looking for store management?</p>
+          <a href="/admin" id="drawerAdminPortalLink" style={{"color": "var(--accent)", "fontSize": "0.85rem", "fontWeight": 600, "textDecoration": "none", "display": "inline-flex", "alignItems": "center", "gap": "4px"}}>
+            Sign In to Store Admin Dashboard ↗
+          </a>
         </div>
       </div>
 
