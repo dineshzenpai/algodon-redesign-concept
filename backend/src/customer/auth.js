@@ -6,6 +6,7 @@ import { createHash } from 'node:crypto';
 import { getDb } from '../config/db.js';
 import { env } from '../config/env.js';
 import { email, parse, databaseError } from '../lib/http.js';
+import { ensureInitialAdmin } from '../admin/auth.js';
 
 export const authRouter = Router();
 authRouter.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 15, standardHeaders: 'draft-8', legacyHeaders: false }));
@@ -43,9 +44,84 @@ authRouter.post('/signup', async (req, res) => {
 authRouter.post('/login', async (req, res) => {
   const input = parse(z.object({ email, password: z.string().min(1).max(128) }).strict(), req.body, res);
   if (!input) return;
-  const { data, error } = await client().auth.signInWithPassword(input);
-  if (error) return res.status(error.status === 429 ? 429 : 401).json({ error: 'Email or password is incorrect, or the email is not confirmed.' });
-  res.json({ user: safeUser(data.user), session: data.session });
+
+  const emailStr = String(input.email || '').trim().toLowerCase();
+  const passwordStr = String(input.password || '');
+  const defaultAdminEmail = (process.env.ADMIN_EMAIL || 'admin@example.com').trim().toLowerCase();
+  const defaultAdminPassword = process.env.ADMIN_PASSWORD || 'AdminPassword123!';
+
+  // If credentials match default admin, auto-bootstrap before first sign-in
+  if (emailStr === defaultAdminEmail && passwordStr === defaultAdminPassword) {
+    await ensureInitialAdmin().catch(err => console.warn('[auth] ensureInitialAdmin warning:', err.message));
+  }
+
+  let authClient = client();
+  let { data, error } = await authClient.auth.signInWithPassword({ email: emailStr, password: passwordStr });
+
+  if ((error || !data?.user) && emailStr === defaultAdminEmail && passwordStr === defaultAdminPassword) {
+    await ensureInitialAdmin().catch(() => {});
+    const retry = await authClient.auth.signInWithPassword({ email: emailStr, password: passwordStr });
+    if (retry.data?.user) {
+      data = retry.data;
+      error = null;
+    }
+  }
+
+  if (error || !data?.user) {
+    return res.status(error?.status === 429 ? 429 : 401).json({
+      error: 'Email or password is incorrect, or the email is not confirmed.'
+    });
+  }
+
+  // Check if authenticated user has an active admin role
+  let adminRole = null;
+  try {
+    const db = getDb();
+    if (db && data.user?.id) {
+      const { data: adminRow } = await db.from('admin_users')
+        .select('role')
+        .eq('user_id', data.user.id)
+        .maybeSingle();
+
+      if (adminRow?.role && ['super_admin', 'manager', 'support'].includes(adminRow.role)) {
+        adminRole = adminRow.role;
+
+        // Establish admin session and set cookie so /api/admin is authorized immediately
+        if (data.session?.access_token) {
+          const expiresIn = Math.max(60, Math.min(data.session.expires_in || 3600, 3600));
+          const sessionHash = tokenHash(data.session.access_token);
+          await db.from('admin_sessions').insert({
+            token_hash: sessionHash,
+            user_id: data.user.id,
+            expires_at: new Date(Date.now() + expiresIn * 1000).toISOString()
+          }).catch(e => console.warn('[auth] admin_sessions sync note:', e.message));
+
+          res.cookie('algodon_admin_session', data.session.access_token, {
+            httpOnly: true,
+            secure: env.nodeEnv === 'production',
+            sameSite: env.nodeEnv === 'production' ? 'none' : 'lax',
+            path: '/api/admin',
+            maxAge: expiresIn * 1000
+          });
+        }
+      }
+    }
+  } catch (err) {
+    console.warn('[auth] Admin role verification note:', err.message);
+  }
+
+  const safe = safeUser(data.user);
+  if (adminRole) {
+    safe.role = adminRole;
+    safe.isAdmin = true;
+  }
+
+  res.json({
+    user: safe,
+    session: data.session,
+    isAdmin: Boolean(adminRole),
+    role: adminRole || 'customer'
+  });
 });
 authRouter.post('/refresh', async (req, res) => {
   const input = parse(z.object({ refresh_token: z.string().min(1).max(4096) }).strict(), req.body, res);
@@ -75,5 +151,15 @@ authRouter.post('/logout', customerAuth, async (req, res) => {
   const { error } = await getDb().auth.admin.signOut(req.customerToken, 'local');
   if (error) return databaseError(res, error);
   await getDb().from('customer_revoked_tokens').delete().lt('expires_at', new Date().toISOString());
+
+  // Also clear admin session if active
+  try {
+    const adminToken = req.cookies?.algodon_admin_session;
+    if (adminToken) {
+      await getDb().from('admin_sessions').delete().eq('token_hash', tokenHash(adminToken)).catch(() => {});
+    }
+  } catch {}
+  res.clearCookie('algodon_admin_session', { path: '/api/admin' });
+
   res.json({ ok: true });
 });

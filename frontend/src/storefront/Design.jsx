@@ -17,9 +17,21 @@ export function Header({s}) {
   <nav className="icons">
     <button className="icon-btn" id="searchToggle" aria-label="Search" onClick={() => s.open("search")}>Search</button>
     <div className="account-nav">
-      <button className="icon-btn" id="accountToggle" aria-label="Account" aria-haspopup="true" onClick={() => s.user ? s.setAccountMenu(!s.accountMenu) : s.openAccount()} aria-expanded={s.accountMenu}><img id="accountAvatar" alt="" hidden /><span id="accountNavLabel">{s.user ? (s.user.user_metadata?.full_name?.split(" ")[0] || "Account") : "Account"}</span></button>
+      {s.isAdmin && (
+        <button type="button" className="btn btn-ghost" id="navAdminDashboardBtn" style={{"padding": "5px 11px", "fontSize": "0.75rem", "borderColor": "var(--accent)", "color": "var(--accent)", "fontWeight": 700, "marginRight": "8px", "display": "inline-flex", "alignItems": "center", "gap": "5px"}} onClick={() => s.open("admin")}>
+          ⚙ Admin Dashboard
+        </button>
+      )}
+      <button className="icon-btn" id="accountToggle" aria-label="Account" aria-haspopup="true" onClick={() => s.user ? s.setAccountMenu(!s.accountMenu) : s.openAccount()} aria-expanded={s.accountMenu}><img id="accountAvatar" alt="" hidden /><span id="accountNavLabel">{s.user ? (s.user.user_metadata?.full_name?.split(" ")[0] || (s.isAdmin ? "Admin" : "Account")) : "Account"}</span></button>
       <div className="account-menu" id="accountMenu" hidden={!s.accountMenu}>
-        <a href="/orders" onClick={event => { event.preventDefault(); s.setAccountMenu(false); s.showHistory("orders"); }}>Orders</a><a href="/wishlist" onClick={event => { event.preventDefault(); s.setAccountMenu(false); s.showHistory("wishlist"); }}>Wishlist</a><a href="/admin" onClick={() => s.setAccountMenu(false)} style={{color:"var(--ink-soft)"}}>Store Admin ↗</a><button type="button" id="navLogoutBtn" onClick={s.signOut}>Logout</button>
+        {s.isAdmin && (
+          <button type="button" onClick={() => { s.setAccountMenu(false); s.open("admin"); }} style={{"fontWeight": 700, "color": "var(--accent)", "display": "flex", "alignItems": "center", "gap": "6px"}}>
+            ⚙ Admin Dashboard
+          </button>
+        )}
+        <a href="/orders" onClick={event => { event.preventDefault(); s.setAccountMenu(false); s.showHistory("orders"); }}>Orders</a>
+        <a href="/wishlist" onClick={event => { event.preventDefault(); s.setAccountMenu(false); s.showHistory("wishlist"); }}>Wishlist</a>
+        <button type="button" id="navLogoutBtn" onClick={s.signOut}>Logout</button>
       </div>
     </div>
     <button className="icon-btn" id="cartToggle" aria-label="Open cart" onClick={() => s.open("cart")}>Cart<span id="cartCount">{s.cart.reduce((total,item) => total + item.qty, 0)}</span></button>
@@ -76,13 +88,9 @@ export function AccountDrawer({s}) {
 
     <div className="account-form-pane">
       <div className="account-body" id="accountSignedOut" style={{"display": "flex", "flexDirection": "column", "justifyContent": "center", "height": "100%"}} hidden={s.authMode !== "recovery" && Boolean(s.user || s.guest)}>
-        <div style={{"display": "flex", "background": "rgba(255,255,255,0.04)", "borderRadius": "8px", "padding": "4px", "marginBottom": "22px", "border": "1px solid var(--line)"}}>
-          <button type="button" style={{"flex": "1", "padding": "8px 12px", "border": "none", "borderRadius": "5px", "background": "var(--accent)", "color": "#fff", "fontWeight": "600", "fontSize": "0.82rem", "cursor": "default"}}>Customer</button>
-          <a href="/admin" style={{"flex": "1", "padding": "8px 12px", "textAlign": "center", "textDecoration": "none", "color": "var(--ink-soft)", "fontSize": "0.82rem", "fontWeight": "500", "display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "4px"}}>Store Admin ↗</a>
-        </div>
-        <div style={{"textAlign": "center", "marginBottom": "20px"}}>
-          <h2 id="authTitle" style={{"margin": "0", "fontFamily": "'Fraunces', serif", "fontSize": "2rem", "fontWeight": "300"}}>{({signin:"Customer Sign In",signup:"Create Account",reset:"Reset password",recovery:"Set a new password"})[s.authMode]}</h2>
-          <p style={{"margin": "6px 0 0", "fontSize": "0.82rem", "color": "var(--ink-soft)"}}>Access your shipping details, order tracking, and wishlist</p>
+        <div style={{"textAlign": "center", "marginBottom": "24px"}}>
+          <h2 id="authTitle" style={{"margin": "0", "fontFamily": "'Fraunces', serif", "fontSize": "2rem", "fontWeight": "300"}}>{({signin:"Sign In",signup:"Create Account",reset:"Reset password",recovery:"Set a new password"})[s.authMode]}</h2>
+          <p style={{"margin": "6px 0 0", "fontSize": "0.82rem", "color": "var(--ink-soft)"}}>Access your shipping details, orders, wishlist, and store administration</p>
         </div>
 
         <button type="button" id="googleSignInBtn" className="btn btn-ghost" style={{"width": "100%", "justifyContent": "center", "marginBottom": "16px", "display": "flex", "gap": "10px", "alignItems": "center"}} hidden={true}>
@@ -98,7 +106,7 @@ export function AccountDrawer({s}) {
         <form className="checkout-form" id="signInForm" style={{"border": "none", "padding": "0"}} hidden={!["signin","reset"].includes(s.authMode)} onSubmit={s.submitAuth}>
           <div className="field">
             <label htmlFor="signInEmail">Email</label>
-            <input type="email" id="signInEmail" name="email" autoComplete="email" placeholder="customer@example.com" required />
+            <input type="email" id="signInEmail" name="email" autoComplete="email" placeholder="name@example.com" required />
           </div>
           <div className="field" id="signInPasswordField" hidden={s.authMode === "reset"}>
             <div style={{"display": "flex", "justifyContent": "space-between", "alignItems": "baseline"}}>
@@ -107,16 +115,7 @@ export function AccountDrawer({s}) {
             </div>
             <input type="password" id="signInPassword" name="password" autoComplete="current-password" placeholder="••••••••••••" required={s.authMode !== "reset"} />
           </div>
-          {s.authError && (
-            <div className="field-error" id="signInError" style={{"display": "flex", "flexDirection": "column", "gap": "6px", "padding": "8px 10px", "background": "rgba(196, 92, 60, 0.1)", "borderRadius": "4px", "border": "1px solid rgba(196, 92, 60, 0.2)"}}>
-              <span>{s.authError}</span>
-              {/admin/i.test(s.authError) && (
-                <a href="/admin" style={{"color": "var(--ink)", "fontWeight": "700", "textDecoration": "underline", "fontSize": "0.82rem"}}>
-                  Go to Store Admin Sign In →
-                </a>
-              )}
-            </div>
-          )}
+          <p className="field-error" id="signInError">{s.authError}</p>
           <button type="submit" className="btn btn-solid" style={{"justifyContent": "center", "padding": "14px", "marginTop": "8px"}} disabled={Boolean(s.busy)}>{s.busy === "auth" ? "Please wait…" : s.authMode === "reset" ? "Send reset link" : "Sign In"}</button>
         </form>
 
@@ -152,18 +151,31 @@ export function AccountDrawer({s}) {
           <button type="button" id="guestShippingBtn" style={{"background": "none", "border": "none", "borderBottom": "1px solid var(--line-strong)", "color": "var(--accent)", "cursor": "pointer", "padding": "4px 0", "font": "inherit", "fontSize": "0.82rem", "alignSelf": "center"}} onClick={s.showShipping}>Continue as Guest (Shipping Details) →</button>
           <button type="button" id="guestOrdersBtn" style={{"background": "none", "border": "none", "color": "var(--ink-soft)", "cursor": "pointer", "padding": "4px 0", "font": "inherit", "fontSize": "0.82rem", "alignSelf": "center"}} onClick={() => s.showHistory("orders")}>View Placed Orders →</button>
         </div>
-        <div style={{"marginTop": "18px", "paddingTop": "14px", "borderTop": "1px solid var(--line)", "textAlign": "center"}}>
-          <p style={{"margin": "0 0 4px", "fontSize": "0.78rem", "color": "var(--ink-soft)"}}>Looking for store management?</p>
-          <a href="/admin" id="drawerAdminPortalLink" style={{"color": "var(--accent)", "fontSize": "0.85rem", "fontWeight": 600, "textDecoration": "none", "display": "inline-flex", "alignItems": "center", "gap": "4px"}}>
-            Sign In to Store Admin Dashboard ↗
-          </a>
-        </div>
       </div>
 
       <div className="account-body" id="accountSignedIn" style={{"height": "100%"}} hidden={s.authMode === "recovery" || (!s.user && !s.guest)}>
         <div id="signedInHeader" hidden={s.guest}>
-          <p style={{"fontSize": "0.72rem", "letterSpacing": "0.1em", "color": "var(--ink-soft)", "margin": "0", "textTransform": "uppercase"}}>Signed in as</p>
+          <div style={{"display": "flex", "justifyContent": "space-between", "alignItems": "baseline", "marginBottom": "4px"}}>
+            <p style={{"fontSize": "0.72rem", "letterSpacing": "0.1em", "color": "var(--ink-soft)", "margin": "0", "textTransform": "uppercase"}}>Signed in as</p>
+            {s.isAdmin && (
+              <span style={{"background": "var(--accent)", "color": "#fff", "fontSize": "0.68rem", "fontWeight": 700, "padding": "2px 7px", "borderRadius": "3px", "textTransform": "uppercase"}}>
+                {s.adminRole ? s.adminRole.replace('_', ' ') : 'Admin'}
+              </span>
+            )}
+          </div>
           <p id="accountEmail" style={{"fontWeight": "700", "fontSize": "0.95rem", "marginBottom": "16px"}}>{s.user?.email}</p>
+          {s.isAdmin && (
+            <div style={{"background": "rgba(173, 103, 87, 0.1)", "border": "1px solid var(--accent)", "borderRadius": "8px", "padding": "14px 16px", "marginBottom": "20px"}}>
+              <div style={{"display": "flex", "justifyContent": "space-between", "alignItems": "center", "marginBottom": "6px"}}>
+                <span style={{"fontSize": "0.85rem", "fontWeight": 700, "color": "var(--ink)"}}>Store Administration</span>
+                <span style={{"fontSize": "0.72rem", "color": "var(--accent)", "fontWeight": 600}}>Full Access</span>
+              </div>
+              <p style={{"margin": "0 0 12px", "fontSize": "0.78rem", "color": "var(--ink-soft)"}}>Manage products, categories, orders, coupons, and live metrics.</p>
+              <button type="button" className="btn btn-solid" style={{"width": "100%", "justifyContent": "center"}} onClick={() => s.open('admin')}>
+                Open Admin Dashboard ⚙
+              </button>
+            </div>
+          )}
         </div>
         <div id="guestModeHeader" style={{"display": "flex", "justifyContent": "space-between", "alignItems": "center", "marginBottom": "16px"}} hidden={!s.guest}>
           <div>
@@ -371,7 +383,7 @@ export function Footer({s}) {
     </div>
   </div>
   <div className="footer-bottom">
-    <span>© Algodon Organic · <a href="/admin" style={{color:'inherit',textDecoration:'none',opacity:0.8}}>Store Admin ↗</a></span>
+    <span>© Algodon Organic · <a href="/admin" onClick={e => { e.preventDefault(); s.isAdmin ? s.open("admin") : s.openAccount(); }} style={{color:'inherit',textDecoration:'none',opacity:0.8}}>Store Admin ⚙</a></span>
     <span>Design concept — prepared for review</span>
   </div>
 </footer>

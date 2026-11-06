@@ -30,6 +30,7 @@ export function useStorefront() {
   const [cart,setCart] = useState(() => cartOwner() ? [] : normalizeCart(readStorage(CART,[])));
   const [coupon,setCoupon] = useState(null), [couponCode,setCouponCode] = useState(''), [couponMessage,setCouponMessage] = useState('');
   const [user,setUser] = useState(null), [client,setClient] = useState(null), [authReady,setAuthReady] = useState(false);
+  const [isAdmin,setIsAdmin] = useState(false), [adminRole,setAdminRole] = useState(null);
   const [authMode,setAuthMode] = useState(() => new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery' ? 'recovery' : 'signin');
   const [authError,setAuthError] = useState(''), [guest,setGuest] = useState(false), [accountView,setAccountView] = useState('shipping');
   const [address,setAddress] = useState(savedAddress), [addressError,setAddressError] = useState('');
@@ -160,6 +161,29 @@ export function useStorefront() {
     history.replaceState(null,'',location.pathname+location.search);
   },[authMode,authReady,user?.id]);
 
+  const checkAdminStatus = useCallback(async () => {
+    try {
+      const res = await request('/api/admin/me', { headers: { 'X-Admin-Request': '1' } });
+      if (res?.user?.role) {
+        setIsAdmin(true);
+        setAdminRole(res.user.role);
+        return true;
+      }
+    } catch {}
+    setIsAdmin(false);
+    setAdminRole(null);
+    return false;
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      checkAdminStatus();
+    } else {
+      setIsAdmin(false);
+      setAdminRole(null);
+    }
+  }, [user?.id, checkAdminStatus]);
+
   async function submitAuth(event) {
     event.preventDefault(); setAuthError('');
     if (!client) { setAuthError("Accounts aren't reachable right now."); return; }
@@ -181,20 +205,30 @@ export function useStorefront() {
       if (!result.session) { setAuthMode('signin'); setAuthError('Check your email to confirm your account, then sign in.'); return; }
       const stored = await client.auth.setSession(result.session);
       if (stored.error) throw stored.error;
-      setUser(stored.data.user); setGuest(false); close();
-    } catch(error) {
-      if (data?.email && /admin/i.test(String(data.email))) {
-        setAuthError((error.message || 'Authentication failed') + ' — Looking for store management? Sign in at the Store Admin Dashboard (/admin).');
-      } else {
-        setAuthError(error.message);
+      const loggedUser = { ...stored.data.user, ...(result.user || {}), isAdmin: Boolean(result.isAdmin), role: result.role };
+      setUser(loggedUser);
+      setIsAdmin(Boolean(result.isAdmin));
+      setAdminRole(result.role || null);
+      setGuest(false);
+      close();
+      if (result.isAdmin) {
+        notify(`Welcome! Store Admin access unlocked (${result.role?.replace('_', ' ') || 'admin'}).`);
       }
+    } catch(error) {
+      setAuthError(error.message);
     }
     finally { setBusy(''); }
   }
   async function signOut() {
     try {
       if (user) await accountFetch('/api/auth/logout',{method:'POST'}).catch(error => { if(error.status !== 401) throw error; });
-      await client?.auth.signOut({scope:'local'}); setUser(null); setGuest(false); setCart([]); close();
+      await client?.auth.signOut({scope:'local'});
+      setIsAdmin(false);
+      setAdminRole(null);
+      setUser(null);
+      setGuest(false);
+      setCart([]);
+      close();
     } catch(error) { notify(error.message); }
   }
   function showShipping() { setGuest(!user); setAccountView('shipping'); open('account'); }
@@ -504,5 +538,5 @@ export function useStorefront() {
     setCart(items => previous ? items.map(item => item === previous ? {...item,qty:item.qty+1} : item) : [...items,{id:product.id,name:product.name,size,qty:1,price:Number(product.sale_price ?? product.price),img:product.images?.[0] || ''}]);
     open('cart'); return '';
   }
-  return {products,panel,open,close,menuOpen,setMenuOpen,accountMenu,setAccountMenu,scrolled,cart,setCart,coupon,couponCode,setCouponCode,couponMessage,applyCoupon,subtotal,total,money,user,authReady,authMode,changeAuth,authError,submitAuth,signOut,openAccount,guest,setGuest,accountView,setAccountView,showShipping,showHistory,address,setAddress,addressError,saveAddress,newsletterOptIn,setNewsletterOptIn,newsletterMessage,subscribe,busy,toast,notify,lastOrder,cartNote,checkout,testRazorpayPayment,downloadInvoice,accountFetch,addProduct};
+  return {products,panel,open,close,menuOpen,setMenuOpen,accountMenu,setAccountMenu,scrolled,cart,setCart,coupon,couponCode,setCouponCode,couponMessage,applyCoupon,subtotal,total,money,user,isAdmin,setIsAdmin,adminRole,checkAdminStatus,authReady,authMode,changeAuth,authError,submitAuth,signOut,openAccount,guest,setGuest,accountView,setAccountView,showShipping,showHistory,address,setAddress,addressError,saveAddress,newsletterOptIn,setNewsletterOptIn,newsletterMessage,subscribe,busy,toast,notify,lastOrder,cartNote,checkout,testRazorpayPayment,downloadInvoice,accountFetch,addProduct};
 }
