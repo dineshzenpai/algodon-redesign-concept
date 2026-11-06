@@ -36,8 +36,15 @@ export function useStorefront() {
   const [address,setAddress] = useState(savedAddress), [addressError,setAddressError] = useState('');
   const [newsletterOptIn,setNewsletterOptIn] = useState(true), [newsletterMessage,setNewsletterMessage] = useState('Saved to a live database — real signups.');
   const [busy,setBusy] = useState(''), [toast,setToast] = useState(''), [lastOrder,setLastOrder] = useState(null);
-  const [cartNote,setCartNote] = useState('Concept preview — no real payment, but your order and shipping details are saved to a live database.');
+  const [cartNote,setCartNote] = useState('');
   const [cartReady,setCartReady] = useState(false);
+  const [activeProduct,setActiveProduct] = useState(null);
+  const [helpTopic,setHelpTopic] = useState(null);
+  const [loginMethod,setLoginMethod] = useState('password'); // 'password' | 'otp'
+  const [otpSent,setOtpSent] = useState(false);
+  const [otpIdentifier,setOtpIdentifier] = useState('');
+  const [otpCode,setOtpCode] = useState('');
+  const [otpNotice,setOtpNotice] = useState('');
   const customerId = useRef(null), cartRef = useRef(cart), toastTimer = useRef();
   cartRef.current = cart;
   const notify = useCallback(message => { setToast(message); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''),4000); },[]);
@@ -210,14 +217,119 @@ export function useStorefront() {
       setIsAdmin(Boolean(result.isAdmin));
       setAdminRole(result.role || null);
       setGuest(false);
-      close();
+      setPanel('account');
+      setAccountView('profile');
       if (result.isAdmin) {
         notify(`Welcome! Store Admin access unlocked (${result.role?.replace('_', ' ') || 'admin'}).`);
+      } else {
+        notify(`Welcome, ${loggedUser.user_metadata?.full_name?.split(' ')[0] || loggedUser.email || 'Customer'}!`);
       }
     } catch(error) {
       setAuthError(error.message);
     }
     finally { setBusy(''); }
+  }
+
+  async function sendOtp(targetIdentifier) {
+    const target = String(targetIdentifier || otpIdentifier).trim();
+    if (!target) {
+      setAuthError('Please enter your email address or phone number.');
+      return;
+    }
+    setBusy('otp_send');
+    setAuthError('');
+    try {
+      const res = await request('/api/auth/otp/send', {
+        method: 'POST',
+        body: JSON.stringify({ identifier: target })
+      });
+      setOtpSent(true);
+      setOtpIdentifier(target);
+      if (res?.otp) {
+        setOtpCode(res.otp);
+        notify(`Verification code: ${res.otp}`);
+        setOtpNotice(`Code ${res.otp} sent to ${target}`);
+      } else {
+        notify(`Verification code sent to ${target}`);
+        setOtpNotice(`Verification code sent to ${target}`);
+      }
+    } catch(err) {
+      setAuthError(err.message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function verifyOtp(e) {
+    if (e && e.preventDefault) e.preventDefault();
+    const target = otpIdentifier.trim();
+    const code = otpCode.trim();
+    if (!target || !code) {
+      setAuthError('Please enter both your phone/email and the 6-digit code.');
+      return;
+    }
+    setBusy('otp_verify');
+    setAuthError('');
+    try {
+      const res = await request('/api/auth/otp/verify', {
+        method: 'POST',
+        body: JSON.stringify({ identifier: target, otp: code })
+      });
+      if (res?.user) {
+        const loggedUser = { ...(res.user || {}), isAdmin: Boolean(res.isAdmin), role: res.role };
+        setUser(loggedUser);
+        setIsAdmin(Boolean(res.isAdmin));
+        setAdminRole(res.role || null);
+        setGuest(false);
+        setOtpSent(false);
+        setOtpCode('');
+        setPanel('account');
+        setAccountView('profile');
+        if (res.isAdmin) {
+          notify(`Welcome! Store Admin access unlocked (${res.role?.replace('_', ' ') || 'admin'}).`);
+        } else {
+          notify(`Welcome, ${loggedUser.full_name?.split(' ')[0] || loggedUser.email || loggedUser.phone || 'Customer'}!`);
+        }
+      }
+    } catch(err) {
+      setAuthError(err.message);
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function signInWithGoogle() {
+    if (!client) {
+      notify('Authentication service connecting. Please try again.');
+      return;
+    }
+    try {
+      const { error } = await client.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: new URL('/account', location.origin).href }
+      });
+      if (error) throw error;
+    } catch (err) {
+      notify(`Google Sign-In: ${err.message || 'Supabase OAuth requires configuration.'}`);
+    }
+  }
+
+  function openProductModal(product) {
+    setActiveProduct(product);
+  }
+
+  function closeProductModal() {
+    setActiveProduct(null);
+  }
+
+  function openHelp(topic = 'shipping') {
+    setHelpTopic(topic);
+    open('help');
+  }
+
+  function closeHelp() {
+    setHelpTopic(null);
+    close();
   }
   async function signOut() {
     try {
@@ -538,5 +650,16 @@ export function useStorefront() {
     setCart(items => previous ? items.map(item => item === previous ? {...item,qty:item.qty+1} : item) : [...items,{id:product.id,name:product.name,size,qty:1,price:Number(product.sale_price ?? product.price),img:product.images?.[0] || ''}]);
     open('cart'); return '';
   }
-  return {products,panel,open,close,menuOpen,setMenuOpen,accountMenu,setAccountMenu,scrolled,cart,setCart,coupon,couponCode,setCouponCode,couponMessage,applyCoupon,subtotal,total,money,user,isAdmin,setIsAdmin,adminRole,checkAdminStatus,authReady,authMode,changeAuth,authError,submitAuth,signOut,openAccount,guest,setGuest,accountView,setAccountView,showShipping,showHistory,address,setAddress,addressError,saveAddress,newsletterOptIn,setNewsletterOptIn,newsletterMessage,subscribe,busy,toast,notify,lastOrder,cartNote,checkout,testRazorpayPayment,downloadInvoice,accountFetch,addProduct};
+  return {
+    products,panel,open,close,menuOpen,setMenuOpen,accountMenu,setAccountMenu,scrolled,cart,setCart,
+    coupon,couponCode,setCouponCode,couponMessage,applyCoupon,subtotal,total,money,
+    user,isAdmin,setIsAdmin,adminRole,checkAdminStatus,authReady,authMode,changeAuth,authError,setAuthError,submitAuth,signOut,openAccount,
+    guest,setGuest,accountView,setAccountView,showShipping,showHistory,address,setAddress,addressError,saveAddress,
+    newsletterOptIn,setNewsletterOptIn,newsletterMessage,subscribe,busy,toast,notify,lastOrder,cartNote,
+    checkout,testRazorpayPayment,downloadInvoice,accountFetch,addProduct,
+    activeProduct,setActiveProduct,openProductModal,closeProductModal,
+    helpTopic,setHelpTopic,openHelp,closeHelp,
+    loginMethod,setLoginMethod,otpSent,setOtpSent,otpIdentifier,setOtpIdentifier,otpCode,setOtpCode,otpNotice,
+    sendOtp,verifyOtp,signInWithGoogle
+  };
 }

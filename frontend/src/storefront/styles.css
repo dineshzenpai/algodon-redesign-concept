@@ -523,7 +523,9 @@
     position: fixed;
     inset: 0;
     z-index: 70;
-    background: var(--bg);
+    background: rgba(24, 18, 14, 0.88);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     padding: clamp(20px, 6vw, 60px);
     overflow-y: auto;
   }
