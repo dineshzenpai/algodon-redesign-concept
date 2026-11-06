@@ -117,16 +117,31 @@ export function AccountHistory({s}) {
         <span>{s.money(Number(order.subtotal) - Number(order.discount || 0))}</span>
       </div>
 
-      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
         <button
           type="button"
           className="btn btn-solid"
           data-action="order-invoice"
-          style={{ flex: 1, justifyContent: 'center', fontSize: '.78rem', padding: '10px 12px' }}
+          style={{ flex: 1, minWidth: '160px', justifyContent: 'center', fontSize: '.78rem', padding: '10px 12px' }}
           onClick={() => s.downloadInvoice(order)}
         >
           📄 Download GST Invoice (PDF)
         </button>
+        {order.status !== 'Refunded' && order.status !== 'Cancelled' ? (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ flex: 1, minWidth: '160px', justifyContent: 'center', fontSize: '.78rem', padding: '10px 12px', borderColor: 'var(--accent)', color: 'var(--accent)' }}
+            onClick={() => s.requestReturn(order)}
+            disabled={s.busy === 'refund'}
+          >
+            {s.busy === 'refund' ? 'Processing Refund…' : '↩ 7-Day Return / Refund'}
+          </button>
+        ) : (
+          <span style={{ flex: 1, minWidth: '160px', textAlign: 'center', padding: '8px', fontSize: '.76rem', background: '#fdf2ee', color: '#c45c3c', borderRadius: '4px', border: '1px solid #f8dcd3', fontWeight: 600 }}>
+            ✓ Refund Processed via Razorpay
+          </span>
+        )}
       </div>
     </div>;
   });

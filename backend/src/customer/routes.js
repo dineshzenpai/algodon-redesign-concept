@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { getDb } from '../config/db.js';
 import { customerAuth } from './auth.js';
 import { address, cartItems, databaseError, pagination, parse, publicOrderFields, uuid } from '../lib/http.js';
+import { executeRazorpayRefund } from '../payments/razorpay.js';
+import { sendRefundNotification } from '../lib/notifications.js';
 
 export const accountRouter = Router();
 accountRouter.use((req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
@@ -90,4 +92,56 @@ accountRouter.get('/orders/:id', async (req, res) => {
   if (error) return databaseError(res, error);
   if (!data) return res.status(404).json({ error: 'Order not found.' });
   res.json({ data });
+});
+accountRouter.post('/orders/:id/return', async (req, res) => {
+  if (!parse(uuid, req.params.id, res)) return;
+  const { data: order, error } = await getDb().from('order_intents').select('*').eq('id', req.params.id).eq('customer_user_id', req.customer.id).maybeSingle();
+  if (error) return databaseError(res, error);
+  if (!order) return res.status(404).json({ error: 'Order not found.' });
+
+  if (order.status === 'Refunded' || order.status === 'Cancelled') {
+    return res.status(400).json({ error: 'Order is already ' + order.status });
+  }
+
+  const orderDate = new Date(order.created_at).getTime();
+  const daysDiff = (Date.now() - orderDate) / (1000 * 3600 * 24);
+  if (daysDiff > 7) {
+    return res.status(400).json({ error: 'Returns can only be requested within 7 days of delivery.' });
+  }
+
+  const payId = order.razorpay_payment_id || order.payment_id || `pay_${order.id.slice(0, 10)}`;
+  const totalAmount = Math.max(0, Number(order.subtotal || 0) - Number(order.discount || 0));
+  const reason = req.body?.reason || 'Customer 7-Day Return / Size Exchange';
+
+  try {
+    const rfResult = await executeRazorpayRefund({
+      paymentId: payId,
+      orderId: order.id,
+      amountInPaise: totalAmount * 100,
+      reason
+    });
+
+    const updatePayload = {
+      status: 'Refunded',
+      payment_status: 'Refunded',
+      refund_id: rfResult.refund_id,
+      refunded_at: new Date().toISOString()
+    };
+
+    await getDb().from('order_intents').update(updatePayload).eq('id', order.id);
+
+    sendRefundNotification({
+      order: { ...order, ...updatePayload },
+      refundId: rfResult.refund_id,
+      customer: { email: req.customer.email, name: req.customer.user_metadata?.full_name }
+    }).catch(() => {});
+
+    return res.json({
+      success: true,
+      message: 'Your return has been logged and refund initiated via Razorpay.',
+      refund_id: rfResult.refund_id
+    });
+  } catch (rErr) {
+    return res.status(500).json({ error: rErr.message || 'Refund processing failed.' });
+  }
 });

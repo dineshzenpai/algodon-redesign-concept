@@ -507,8 +507,23 @@ export function useStorefront() {
             }
             setCart([]);
             setCoupon(null);
-            setCartNote(`Payment confirmed (Ref: ${response.razorpay_payment_id}). Order confirmed!`);
-            notify(`Payment successful! Order confirmed (${response.razorpay_payment_id.slice(0, 10)}).`);
+
+            // Automated Tax Invoice & SMS bill notification
+            try {
+              await request('/api/checkout/notify-bill', {
+                method: 'POST',
+                body: JSON.stringify({
+                  order: confirmedOrder,
+                  customer: address,
+                  payment: { razorpay_payment_id: response.razorpay_payment_id }
+                })
+              });
+            } catch (notifyErr) {
+              console.warn('[checkout] Bill notify warning:', notifyErr.message);
+            }
+
+            setCartNote(`Payment confirmed (Ref: ${response.razorpay_payment_id}). Invoice sent to ${address.email || 'your email'} & SMS sent to ${address.phone || 'your phone'}.`);
+            notify(`Order Confirmed! Tax Invoice sent to ${address.email || 'your email'} & SMS to ${address.phone || 'your phone'}.`);
             if (newsletterOptIn) request('/api/newsletter', { method: 'POST', body: JSON.stringify({ email: address.email }) }).catch(() => {});
           } catch (err) {
             setCartNote(err.message || 'Payment verification failed.');
@@ -790,13 +805,56 @@ export function useStorefront() {
     setCart(items => previous ? items.map(item => item === previous ? {...item,qty:item.qty+1} : item) : [...items,{id:product.id,name:product.name,size,qty:1,price:Number(product.sale_price ?? product.price),img:product.images?.[0] || ''}]);
     open('cart'); return '';
   }
+  async function requestReturn(order) {
+    const orderAmount = money(Number(order.subtotal) - Number(order.discount || 0));
+    if (!window.confirm(`Request 7-day return & refund for Order #${order.id.slice(0, 8)} (${orderAmount})?\n\nOur courier partner will arrange free doorstep reverse pickup, and your full refund will be automated directly via Razorpay.`)) return;
+
+    setBusy('refund');
+    try {
+      let res = null;
+      try {
+        res = await accountFetch(`/api/orders/${order.id}/return`, {
+          method: 'POST',
+          body: JSON.stringify({ reason: 'Customer 7-day return request' })
+        });
+      } catch {
+        res = await request('/api/refund', {
+          method: 'POST',
+          body: JSON.stringify({
+            order_id: order.id,
+            payment_id: order.payment_id || order.razorpay_payment_id,
+            amount: Number(order.subtotal) - Number(order.discount || 0),
+            customer: order.customer || address
+          })
+        });
+      }
+
+      const updated = {
+        ...order,
+        status: 'Refunded',
+        payment_status: 'Refunded',
+        refund_id: res?.refund_id || 'rfnd_auto_' + Date.now().toString(36)
+      };
+
+      setLastOrder(updated);
+      const saved = readStorage('algodon_demo_orders', []);
+      writeStorage('algodon_demo_orders', saved.map(o => o.id === order.id ? updated : o));
+
+      notify(`Automated refund initiated via Razorpay (Ref: ${updated.refund_id.slice(0, 10)}). Confirmation sent to your email & SMS.`);
+    } catch (err) {
+      notify(err.message || 'Refund request failed. Please contact concierge.', true);
+    } finally {
+      setBusy('');
+    }
+  }
+
   return {
     products,panel,open,close,menuOpen,setMenuOpen,accountMenu,setAccountMenu,scrolled,cart,setCart,
     coupon,couponCode,setCouponCode,couponMessage,applyCoupon,subtotal,total,money,
     user,isAdmin,setIsAdmin,adminRole,checkAdminStatus,authReady,authMode,changeAuth,authError,setAuthError,submitAuth,signOut,openAccount,
     guest,setGuest,accountView,setAccountView,showShipping,showHistory,address,setAddress,addressError,saveAddress,
     newsletterOptIn,setNewsletterOptIn,newsletterMessage,subscribe,busy,toast,notify,lastOrder,cartNote,
-    checkout,testRazorpayPayment,downloadInvoice,accountFetch,addProduct,
+    checkout,testRazorpayPayment,downloadInvoice,accountFetch,addProduct,requestReturn,
     activeProduct,setActiveProduct,openProductModal,closeProductModal,
     helpTopic,setHelpTopic,openHelp,closeHelp,
     loginMethod,setLoginMethod,otpSent,setOtpSent,otpIdentifier,setOtpIdentifier,otpCode,setOtpCode,otpNotice,

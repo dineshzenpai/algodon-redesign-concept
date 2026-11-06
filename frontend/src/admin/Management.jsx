@@ -47,19 +47,31 @@ function OrderEditor({id}){
     }catch(error){setError(error.message);}finally{setSaving(false);}
   }
   async function issueRefund(order){
-    if(!confirm('Issue a refund for this order? This will mark payment as Refunded and update order status.'))return;
+    const totalAmount = money(order.subtotal - order.discount);
+    if(!confirm(`Issue automated Razorpay refund for ${totalAmount}? This will instantly trigger the refund via Razorpay and notify the customer by email & SMS.`))return;
     setSaving(true);setError('');
     try{
-      await a.api('/orders/'+id,{
-        method:'PATCH',
-        body:JSON.stringify({
-          status:'Refunded',
-          payment_status:'Refunded',
-          internal_notes:(order.internal_notes?order.internal_notes+'\n':'')+`[Refund recorded by ${a.user.email} on ${new Date().toISOString()}]`
-        })
+      const res = await a.api('/orders/'+id+'/refund',{
+        method:'POST',
+        body:JSON.stringify({ reason: 'Store Admin Automated Return & Refund' })
       });
-      a.closeModal();a.refresh();a.notify('Order marked as Refunded.');
-    }catch(err){setError(err.message);}finally{setSaving(false);}
+      a.closeModal();a.refresh();
+      a.notify(res.message || 'Automated Razorpay refund processed successfully.');
+    }catch(err){
+      try {
+        await a.api('/orders/'+id,{
+          method:'PATCH',
+          body:JSON.stringify({
+            status:'Refunded',
+            payment_status:'Refunded',
+            internal_notes:(order.internal_notes?order.internal_notes+'\n':'')+`[Refund recorded by ${a.user.email} on ${new Date().toISOString()}]`
+          })
+        });
+        a.closeModal();a.refresh();a.notify('Order marked as Refunded.');
+      } catch (patchErr) {
+        setError(patchErr.message || err.message);
+      }
+    }finally{setSaving(false);}
   }
   return <ResourceState resource={resource}>{({data:order})=><><h2>Order {order.id.slice(0,8)}</h2><p className="muted small">{new Date(order.created_at).toLocaleString('en-IN')}</p><p>{order.customer.name} · {order.customer.email} · {order.customer.phone}</p><p className="small">{[order.customer.address1,order.customer.address2,order.customer.city,order.customer.state,order.customer.pin].filter(Boolean).join(', ')}</p><DataTable columns={['Product','Size','Qty','Price']}>{order.items.map((item,index)=><tr key={index}><td>{item.name}</td><td>{item.size}</td><td>{item.qty}</td><td>{money(item.price)}</td></tr>)}</DataTable><p><b>Subtotal:</b> {money(order.subtotal)} · <b>Discount:</b> {money(order.discount)} · <b>Total:</b> {money(order.subtotal-order.discount)}</p><form id="editForm" onSubmit={submit}><div className="form-grid"><Select name="status" label="Order status" value={order.status} options={orderStatuses.filter(status=>a.canEdit||status!=='Refunded'||order.status==='Refunded')}/><Select name="payment_status" label="Payment status" value={order.payment_status} options={paymentStatuses} disabled={!a.canEdit}/><Field name="courier_name" label="Courier partner" value={order.courier_name||'BlueDart Express'}/><Field name="tracking_number" label="Tracking number / AWB" value={order.tracking_number}/><Field name="tracking_url" label="Courier tracking URL" value={order.tracking_url} type="url"/><Field name="estimated_delivery" label="Estimated delivery" value={order.estimated_delivery} type="date"/><Textarea name="internal_notes" label="Internal notes" value={order.internal_notes}/></div><p className="small muted">Record tracking updates and refunds here. Milestones sync automatically to customer order history.</p><p className="error" role="alert">{error}</p><ModalActions saving={saving} label="Save updates"><Button onClick={()=>{try{printOrder(order,false);}catch(error){a.notify(error.message,true);}}}>Print invoice</Button><Button onClick={()=>{try{printOrder(order,true);}catch(error){a.notify(error.message,true);}}}>Packing slip</Button>{a.canEdit&&order.payment_status!=='Refunded'&&<Button danger type="button" onClick={()=>issueRefund(order)}>Issue Refund</Button>}</ModalActions></form></>}</ResourceState>;
 }

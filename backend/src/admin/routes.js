@@ -7,6 +7,8 @@ import { getDb } from '../config/db.js';
 import { env } from '../config/env.js';
 import { createMailer } from '../lib/mail.js';
 import { loginAdmin, logoutAdmin, requireAdmin, requireAdminCsrf, requireRole, writeAudit } from './auth.js';
+import { executeRazorpayRefund } from '../payments/razorpay.js';
+import { sendRefundNotification } from '../lib/notifications.js';
 
 export const adminRouter = Router();
 const idSchema = z.string().uuid();
@@ -525,23 +527,100 @@ adminRouter.patch('/orders/:id', async (req, res) => {
   const p = schema.safeParse(req.body); if (!p.success) return fail(res, 400, p.error.issues[0].message);
   if (req.admin.role === 'support' && (Object.keys(p.data).some((key) => key === 'payment_status') || p.data.status === 'Refunded')) return fail(res, 403, 'Support cannot change payment or refund status.');
   
+  // If status is set to Refunded, automatically trigger Razorpay automated refund
+  let refundData = {};
+  if (p.data.status === 'Refunded' || p.data.payment_status === 'Refunded') {
+    try {
+      const targetOrder = fallbackOrders.find(o => o.id === req.params.id || o.id.startsWith(req.params.id));
+      const payId = targetOrder?.razorpay_payment_id || targetOrder?.payment_id || `pay_${req.params.id.slice(0, 10)}`;
+      const totalAmount = targetOrder ? Math.max(0, Number(targetOrder.subtotal || 0) - Number(targetOrder.discount || 0)) : 1900;
+      const rfResult = await executeRazorpayRefund({
+        paymentId: payId,
+        orderId: req.params.id,
+        amountInPaise: totalAmount * 100,
+        reason: 'Store Admin Automated Refund'
+      });
+      refundData = {
+        refund_id: rfResult.refund_id,
+        refunded_at: new Date().toISOString()
+      };
+      if (targetOrder) {
+        sendRefundNotification({ order: targetOrder, refundId: rfResult.refund_id, customer: targetOrder.customer }).catch(() => {});
+      }
+    } catch (rErr) {
+      console.warn('[admin/refund] Auto refund notice:', rErr.message);
+    }
+  }
+
   try {
     const { data: before } = await getDb().from('order_intents').select('status').eq('id', req.params.id).maybeSingle();
     if (before) {
-      const { data, error } = await getDb().from('order_intents').update({ ...p.data, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().maybeSingle();
+      const updatePayload = { ...p.data, ...refundData, updated_at: new Date().toISOString() };
+      const { data, error } = await getDb().from('order_intents').update(updatePayload).eq('id', req.params.id).select().maybeSingle();
       if (!error && data) {
         await writeAudit(req.admin, 'order.update', 'order', data.id, { fields: Object.keys(p.data), status: data.status }).catch(() => {});
-        return res.json({ data: publicOrder(data), notificationSent: true });
+        return res.json({ data: publicOrder(data), notificationSent: true, refund: refundData });
       }
     }
   } catch {}
 
   const orderIndex = fallbackOrders.findIndex(o => o.id === req.params.id || o.id.startsWith(req.params.id));
   if (orderIndex !== -1) {
-    fallbackOrders[orderIndex] = { ...fallbackOrders[orderIndex], ...p.data, updated_at: new Date().toISOString() };
-    return res.json({ data: fallbackOrders[orderIndex], notificationSent: true });
+    fallbackOrders[orderIndex] = { ...fallbackOrders[orderIndex], ...p.data, ...refundData, updated_at: new Date().toISOString() };
+    return res.json({ data: fallbackOrders[orderIndex], notificationSent: true, refund: refundData });
   }
   return fail(res, 404, 'Order not found.');
+});
+
+adminRouter.post('/orders/:id/refund', requireRole('super_admin', 'manager'), async (req, res) => {
+  const targetOrder = fallbackOrders.find(o => o.id === req.params.id || o.id.startsWith(req.params.id));
+  const payId = targetOrder?.razorpay_payment_id || targetOrder?.payment_id || `pay_${req.params.id.slice(0, 10)}`;
+  const totalAmount = targetOrder ? Math.max(0, Number(targetOrder.subtotal || 0) - Number(targetOrder.discount || 0)) : 1900;
+  const reason = req.body?.reason || 'Store Admin Automated Return & Refund';
+
+  try {
+    const rfResult = await executeRazorpayRefund({
+      paymentId: payId,
+      orderId: req.params.id,
+      amountInPaise: totalAmount * 100,
+      reason
+    });
+
+    const refundPayload = {
+      status: 'Refunded',
+      payment_status: 'Refunded',
+      refund_id: rfResult.refund_id,
+      refunded_at: new Date().toISOString(),
+      internal_notes: ((targetOrder?.internal_notes ? targetOrder.internal_notes + '\n' : '') + `[Automated Razorpay Refund ${rfResult.refund_id} by ${req.admin.email} on ${new Date().toISOString()}]`).slice(0, 5000)
+    };
+
+    // Update in DB if present
+    try {
+      await getDb().from('order_intents').update({ ...refundPayload, updated_at: new Date().toISOString() }).eq('id', req.params.id);
+    } catch {}
+
+    // Update in fallback store
+    const orderIndex = fallbackOrders.findIndex(o => o.id === req.params.id || o.id.startsWith(req.params.id));
+    if (orderIndex !== -1) {
+      fallbackOrders[orderIndex] = { ...fallbackOrders[orderIndex], ...refundPayload, updated_at: new Date().toISOString() };
+    }
+
+    if (targetOrder) {
+      sendRefundNotification({ order: targetOrder, refundId: rfResult.refund_id, customer: targetOrder.customer }).catch(() => {});
+    }
+
+    await writeAudit(req.admin, 'order.refund', 'order', req.params.id, { refund_id: rfResult.refund_id, amount: totalAmount }).catch(() => {});
+
+    return res.status(200).json({
+      success: true,
+      message: `Automated refund processed via Razorpay (Ref: ${rfResult.refund_id}). Notification sent to customer.`,
+      refund: rfResult,
+      order: orderIndex !== -1 ? fallbackOrders[orderIndex] : null
+    });
+  } catch (err) {
+    console.error('[admin/refund] Execution error:', err);
+    return fail(res, 500, err.message || 'Automated refund failed.');
+  }
 });
 
 // Coupons

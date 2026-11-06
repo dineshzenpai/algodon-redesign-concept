@@ -132,5 +132,62 @@ describe('Razorpay Standard Checkout backend endpoints', () => {
     assert.equal(data.checkout?.paymentsEnabled, true);
     assert.equal(data.checkout?.razorpayKeyId, 'rzp_test_TwvLKjX2XuZDFi');
   });
+
+  it('POST /api/checkout/notify-bill sends tax invoice bill to customer email and SMS', async () => {
+    const res = await fetch(`${baseUrl}/api/checkout/notify-bill`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        order: {
+          id: 'a1000000-0000-4000-8000-000000000001',
+          subtotal: 1900,
+          discount: 0,
+          items: [{ name: 'Golden-Brown Swirl', size: 'M', qty: 1, price: 1900 }]
+        },
+        customer: {
+          name: 'Aditya Verma',
+          email: 'aditya.verma@example.com',
+          phone: '9876543210',
+          address1: '402 Palm Grove Heights',
+          city: 'Mumbai',
+          state: 'Maharashtra',
+          pin: '400050'
+        },
+        payment: {
+          razorpay_payment_id: 'pay_test_notify_123'
+        }
+      })
+    });
+
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.success, true);
+    assert.equal(data.emailSent, true);
+    assert.equal(data.smsSent, true);
+    assert.ok(data.invoiceNo.startsWith('ALG-INV-'));
+  });
+
+  it('POST /api/refund executes automated refund for order', async () => {
+    const res = await fetch(`${baseUrl}/api/refund`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        payment_id: 'pay_test_order_123',
+        order_id: 'a1000000-0000-4000-8000-000000000001',
+        amount: 1900,
+        reason: 'Customer 7-Day Return / Size Exchange',
+        customer: {
+          email: 'aditya.verma@example.com',
+          phone: '9876543210'
+        }
+      })
+    });
+
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.success, true);
+    assert.equal(data.automated, true);
+    assert.ok(data.refund_id);
+  });
 });
 

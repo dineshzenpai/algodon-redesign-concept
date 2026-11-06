@@ -110,6 +110,21 @@ export function CartDrawer({s}) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", marginTop: "8px", fontSize: "0.74rem", color: "var(--ink-soft)" }}>
             <span>🔒 256-bit Encrypted Checkout · Instant Razorpay Payment</span>
           </div>
+
+          {/* Checkout Policies Mention */}
+          <div className="cart-policy-notice" style={{ marginTop: "12px", padding: "10px 12px", background: "rgba(0,0,0,0.03)", borderRadius: "6px", border: "1px solid var(--line)" }}>
+            <p style={{ margin: "0", fontSize: "0.74rem", color: "var(--ink-soft)", lineHeight: 1.45, textAlign: "center" }}>
+              By checking out, you agree to Algodon’s{' '}
+              <a href="#" style={{ color: "var(--accent)", textDecoration: "underline", fontWeight: 600 }} onClick={e => { e.preventDefault(); s.openHelp('refund'); }}>Refund Policy</a>,{' '}
+              <a href="#" style={{ color: "var(--accent)", textDecoration: "underline", fontWeight: 600 }} onClick={e => { e.preventDefault(); s.openHelp('shipping'); }}>Shipping Policy</a>, and{' '}
+              <a href="#" style={{ color: "var(--accent)", textDecoration: "underline", fontWeight: 600 }} onClick={e => { e.preventDefault(); s.openHelp('terms'); }}>Terms & Privacy</a>.
+            </p>
+            <div style={{ display: "flex", justifyContent: "center", gap: "10px", marginTop: "6px", fontSize: "0.72rem", color: "var(--ink)", fontWeight: 500 }}>
+              <span>✓ 7-Day Free Returns</span>
+              <span>✓ Automated Razorpay Refund</span>
+            </div>
+          </div>
+
           <button className="btn btn-ghost" id="downloadInvoiceBtn" style={{ width: "100%", justifyContent: "center", marginTop: "10px", color: "var(--ink)", borderColor: "var(--line-strong)" }} hidden={!s.lastOrder} onClick={() => s.downloadInvoice(s.lastOrder)}>
             Download Invoice (PDF)
           </button>
@@ -510,18 +525,50 @@ export function HelpModal({s}) {
           </div>
         )}
 
-        {s.helpTopic === 'returns' && (
+        {(s.helpTopic === 'returns' || s.helpTopic === 'refund') && (
           <div>
             <span className="eyebrow" style={{ color: 'var(--accent)' }}>Help & Policies</span>
-            <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.6rem', margin: '4px 0 14px' }}>7-Day Returns & Size Exchanges</h3>
+            <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.6rem', margin: '4px 0 14px' }}>7-Day Refund & Return Policy</h3>
             <p style={{ color: 'var(--ink)', lineHeight: 1.6, fontSize: '0.9rem' }}>
-              <strong>Hassle-Free Fit Guarantee:</strong> If the fit or feel isn't exactly right, we arrange free doorstep pickup for size exchange or full refund within 7 days of delivery.
+              <strong>100% Hassle-Free Returns:</strong> If the fit, feel, or motif isn't exactly as expected, you have a full 7 days from the delivery date to request a free return or size exchange directly from your account page.
             </p>
             <p style={{ color: 'var(--ink)', lineHeight: 1.6, fontSize: '0.9rem' }}>
-              <strong>Conditions:</strong> Garments must be unwashed, unworn, and have original tags intact.
+              <strong>Automated Razorpay Refunds:</strong> Once return pickup is requested, our system automatically initiates the refund via Razorpay back to your original payment method (UPI / Credit Card / Debit Card / Netbanking). Funds typically credit within 2–5 business days with zero deduction or restocking fees.
             </p>
             <p style={{ color: 'var(--ink)', lineHeight: 1.6, fontSize: '0.9rem' }}>
-              <strong>Instant Refund:</strong> Refunds are processed back to your original payment method (Razorpay UPI / Card / Netbanking) within 48 hours of return inspection.
+              <strong>Free Doorstep Pickup:</strong> Our logistics partners BlueDart and Delhivery will arrive at your address to collect the garment with plastic-free packaging.
+            </p>
+            <p style={{ color: 'var(--ink)', lineHeight: 1.6, fontSize: '0.9rem' }}>
+              <strong>Conditions:</strong> Shirts must be unwashed, unworn, and have all original organic cotton tags attached.
+            </p>
+          </div>
+        )}
+
+        {s.helpTopic === 'terms' && (
+          <div>
+            <span className="eyebrow" style={{ color: 'var(--accent)' }}>Help & Policies</span>
+            <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.6rem', margin: '4px 0 14px' }}>Terms of Service</h3>
+            <p style={{ color: 'var(--ink)', lineHeight: 1.6, fontSize: '0.9rem' }}>
+              <strong>Artisanal Craftsmanship:</strong> Algodon shirts are hand block-printed using hand-carved teakwood blocks and natural azo-free dyes. Subtle variations in pigment density and print alignment are hallmarks of genuine craft, not defects.
+            </p>
+            <p style={{ color: 'var(--ink)', lineHeight: 1.6, fontSize: '0.9rem' }}>
+              <strong>Secure Transactions:</strong> All transactions are securely processed through Razorpay Standard Web Checkout. We never store or inspect your raw card numbers or UPI MPIN.
+            </p>
+            <p style={{ color: 'var(--ink)', lineHeight: 1.6, fontSize: '0.9rem' }}>
+              <strong>Jurisdiction:</strong> Governed by the laws of Rajasthan, India. All disputes are subject to the exclusive jurisdiction of the courts in Jaipur.
+            </p>
+          </div>
+        )}
+
+        {s.helpTopic === 'privacy' && (
+          <div>
+            <span className="eyebrow" style={{ color: 'var(--accent)' }}>Help & Policies</span>
+            <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.6rem', margin: '4px 0 14px' }}>Privacy Policy</h3>
+            <p style={{ color: 'var(--ink)', lineHeight: 1.6, fontSize: '0.9rem' }}>
+              <strong>Customer Privacy Commitment:</strong> We collect your name, phone number, email address, and shipping address solely for one-time password (OTP) verification, order dispatch, and sending automated tax invoice receipts.
+            </p>
+            <p style={{ color: 'var(--ink)', lineHeight: 1.6, fontSize: '0.9rem' }}>
+              <strong>No Third-Party Sharing:</strong> We do not sell, rent, or share personal contact data with advertising brokers. 256-bit encryption safeguards every session.
             </p>
           </div>
         )}
@@ -672,11 +719,13 @@ export function Footer({s}) {
             </ul>
           </div>
           <div>
-            <h4>Help</h4>
+            <h4>Help & Policies</h4>
             <ul>
               <li><a href="#" onClick={event => { event.preventDefault(); s.open("size"); }}>Size Guide</a></li>
               <li><a href="#" onClick={event => { event.preventDefault(); s.openHelp("shipping"); }}>Shipping & Delivery</a></li>
-              <li><a href="#" onClick={event => { event.preventDefault(); s.openHelp("returns"); }}>Returns & Exchanges</a></li>
+              <li><a href="#" onClick={event => { event.preventDefault(); s.openHelp("refund"); }}>7-Day Refund Policy</a></li>
+              <li><a href="#" onClick={event => { event.preventDefault(); s.openHelp("terms"); }}>Terms of Service</a></li>
+              <li><a href="#" onClick={event => { event.preventDefault(); s.openHelp("privacy"); }}>Privacy Policy</a></li>
               <li><a href="#" onClick={event => { event.preventDefault(); s.openHelp("contact"); }}>Contact Concierge</a></li>
             </ul>
           </div>
