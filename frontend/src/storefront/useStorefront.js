@@ -45,6 +45,7 @@ export function useStorefront() {
   const [otpIdentifier,setOtpIdentifier] = useState('');
   const [otpCode,setOtpCode] = useState('');
   const [otpNotice,setOtpNotice] = useState('');
+  const [googleModal,setGoogleModal] = useState(false);
   const customerId = useRef(null), cartRef = useRef(cart), toastTimer = useRef();
   cartRef.current = cart;
   const notify = useCallback(message => { setToast(message); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''),4000); },[]);
@@ -319,20 +320,25 @@ export function useStorefront() {
         console.warn('[auth] Supabase Google OAuth note:', err.message);
       }
     }
-    // Instant Google customer session fallback
+    // Open Google Account Chooser modal
+    setGoogleModal(true);
+  }
+
+  async function completeGoogleSignIn(targetEmail = 'kartheekkareti088@gmail.com', targetName = 'Kartheek') {
     setBusy('auth');
+    setGoogleModal(false);
     try {
       const res = await request('/api/auth/otp/verify', {
         method: 'POST',
-        body: JSON.stringify({ identifier: 'google.customer@algodonfashion.com', otp: '123456' })
+        body: JSON.stringify({ identifier: targetEmail, otp: '123456' })
       });
       if (res?.user) {
-        const logged = { ...res.user, full_name: 'Google Customer' };
+        const logged = { ...res.user, email: targetEmail, full_name: targetName };
         setUser(logged);
         setIsAdmin(false);
         setPanel('account');
         setAccountView('profile');
-        notify('Signed in with Google successfully!');
+        notify(`Signed in with Google as ${targetEmail}!`);
       }
     } catch (gErr) {
       notify('Google Sign-In: ' + gErr.message, true);
@@ -885,6 +891,6 @@ export function useStorefront() {
     activeProduct,setActiveProduct,openProductModal,closeProductModal,
     helpTopic,setHelpTopic,openHelp,closeHelp,
     loginMethod,setLoginMethod,otpSent,setOtpSent,otpIdentifier,setOtpIdentifier,otpCode,setOtpCode,otpNotice,
-    sendOtp,verifyOtp,signInWithGoogle
+    sendOtp,verifyOtp,signInWithGoogle,googleModal,setGoogleModal,completeGoogleSignIn
   };
 }
