@@ -128,3 +128,4 @@ describe('Auth OTP and Storefront Coupons Verification', () => {
     assert.equal(data.freeShipping, true);
   });
 });
+

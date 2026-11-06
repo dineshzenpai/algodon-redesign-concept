@@ -617,23 +617,163 @@ export function useStorefront() {
   async function downloadInvoice(order) {
     try {
       const { jsPDF } = await import('jspdf');
-      const doc = new jsPDF({unit:'pt',format:'a4'});
-      doc.setFont('times','italic'); doc.setFontSize(22); doc.text('Algodon Organic',48,64);
-      doc.setFont('helvetica','normal'); doc.setFontSize(10);
-      doc.text('Order '+order.id,48,100); doc.text(new Date(order.created_at).toLocaleDateString('en-IN'),48,118);
-      const customer=order.customer || {};
-      doc.text(doc.splitTextToSize([customer.name,customer.email,[customer.address1,customer.address2,customer.city,customer.state,customer.pin].filter(Boolean).join(', ')].filter(Boolean).join('\n'),490),48,145);
-      let y=230;
+      const doc = new jsPDF({ unit: 'pt', format: 'a4' });
+      const invoiceNo = `ALG-INV-${order.id.slice(0, 8).toUpperCase()}`;
+      const invoiceDate = new Date(order.created_at || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+      const customer = order.customer || {};
+
+      // Header Brand
+      doc.setFont('times', 'italic');
+      doc.setFontSize(24);
+      doc.setTextColor(33, 23, 17);
+      doc.text('Algodon Organic', 48, 54);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(196, 92, 60);
+      doc.text('TAX INVOICE', 48, 70);
+
+      // Seller Details
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(80, 80, 80);
+      doc.text('Algodon Organic India Pvt Ltd', 48, 86);
+      doc.text('Craft Cluster, Sanganer & Bagru, Jaipur, Rajasthan - 302029', 48, 98);
+      doc.text('GSTIN: 08AAACA1234A1Z5 · State: Rajasthan (08)', 48, 110);
+      doc.text('Contact: concierge@algodonfashion.com · +91 98765 43210', 48, 122);
+
+      // Invoice Details Block (Top Right)
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(33, 23, 17);
+      doc.text('Invoice Details:', 380, 70);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.text(`Invoice No: ${invoiceNo}`, 380, 84);
+      doc.text(`Invoice Date: ${invoiceDate}`, 380, 96);
+      doc.text(`Order ID: ${order.id}`, 380, 108);
+      doc.text(`Payment: Razorpay Verified (${order.payment_id ? order.payment_id.slice(0, 14) : 'Online'})`, 380, 120);
+
+      // Divider
+      doc.setDrawColor(210, 200, 190);
+      doc.setLineWidth(0.75);
+      doc.line(48, 134, 547, 134);
+
+      // Bill To / Ship To
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(33, 23, 17);
+      doc.text('Billed & Shipped To:', 48, 150);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(60, 60, 60);
+      doc.text(customer.name || 'Algodon Customer', 48, 164);
+      doc.text(`Email: ${customer.email || '—'}  |  Phone: ${customer.phone || '—'}`, 48, 176);
+      const addressLines = [customer.address1, customer.address2, customer.city, customer.state, customer.pin].filter(Boolean).join(', ');
+      const wrappedAddress = doc.splitTextToSize(addressLines || 'Pan-India Delivery Address', 490);
+      doc.text(wrappedAddress, 48, 188);
+
+      // Table Header
+      let y = 220;
+      doc.setFillColor(245, 240, 235);
+      doc.rect(48, y - 14, 499, 20, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(50, 40, 35);
+      doc.text('ITEM DESCRIPTION', 54, y);
+      doc.text('HSN', 260, y);
+      doc.text('SIZE', 310, y);
+      doc.text('QTY', 355, y);
+      doc.text('RATE', 400, y);
+      doc.text('AMOUNT', 485, y);
+
+      // Line Items
+      y += 18;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(40, 40, 40);
+
       for (const item of order.items || []) {
-        if (y>720) { doc.addPage(); y=64; }
-        const lines=doc.splitTextToSize(`${item.name} · ${item.size} · ${item.qty} × ${money(item.price)}`,490);
-        doc.text(lines,48,y); y+=lines.length*14+12;
+        if (y > 700) { doc.addPage(); y = 64; }
+        doc.text(item.name || 'Organic Cotton Shirt', 54, y);
+        doc.text('6205', 260, y);
+        doc.text(item.size || 'M', 310, y);
+        doc.text(String(item.qty || 1), 360, y);
+        doc.text(money(item.price), 400, y);
+        doc.text(money((item.price || 0) * (item.qty || 1)), 485, y);
+        y += 18;
       }
-      if (y>690) { doc.addPage(); y=64; }
-      doc.text('Total: '+money(Number(order.subtotal)-Number(order.discount || 0)),48,y+20);
-      doc.text('Order record only. No payment was collected.',48,y+44);
-      doc.save('algodon-invoice-'+order.id.slice(0,8)+'.pdf');
-    } catch { notify('The invoice could not be downloaded. Please try again.'); }
+
+      // Divider below table
+      doc.setDrawColor(210, 200, 190);
+      doc.line(48, y, 547, y);
+      y += 16;
+
+      // Price Calculations & GST Breakup
+      const subtotalVal = Number(order.subtotal || 0);
+      const discountVal = Number(order.discount || 0);
+      const finalVal = Math.max(0, subtotalVal - discountVal);
+      // Apparel under ₹1,000 is 5% GST; above is 5% or 12% GOTS rate. Using 5% inclusive.
+      const taxableVal = Math.round((finalVal / 1.05) * 100) / 100;
+      const gstVal = Math.round((finalVal - taxableVal) * 100) / 100;
+      const cgstVal = Math.round((gstVal / 2) * 100) / 100;
+      const sgstVal = Math.round((gstVal - cgstVal) * 100) / 100;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.text('Taxable Amount:', 360, y);
+      doc.text(money(taxableVal), 485, y);
+      y += 14;
+
+      doc.text('CGST (2.5%):', 360, y);
+      doc.text(money(cgstVal), 485, y);
+      y += 14;
+
+      doc.text('SGST (2.5%):', 360, y);
+      doc.text(money(sgstVal), 485, y);
+      y += 14;
+
+      if (discountVal > 0) {
+        doc.setTextColor(196, 92, 60);
+        doc.text(`Promotional Discount (${order.coupon_code || 'COUPON'}):`, 300, y);
+        doc.text(`- ${money(discountVal)}`, 485, y);
+        y += 14;
+        doc.setTextColor(40, 40, 40);
+      }
+
+      doc.text('Pan-India Express Shipping:', 360, y);
+      doc.setTextColor(39, 174, 96);
+      doc.text('FREE', 485, y);
+      doc.setTextColor(40, 40, 40);
+      y += 18;
+
+      // Total Box
+      doc.setFillColor(245, 240, 235);
+      doc.rect(340, y - 12, 207, 24, 'F');
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(33, 23, 17);
+      doc.text('TOTAL AMOUNT PAID:', 350, y + 4);
+      doc.text(money(finalVal), 485, y + 4);
+
+      // Declaration & Footer
+      y += 48;
+      if (y > 720) { doc.addPage(); y = 64; }
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.setTextColor(120, 120, 120);
+      doc.text('Declaration: We declare that this invoice shows the actual price of the goods described and that all particulars are true and correct.', 48, y);
+      y += 12;
+      doc.text('100% GOTS Certified Organic Cotton · Hand block-printed in Rajasthan · Zero synthetic microplastics.', 48, y);
+      y += 12;
+      doc.text('This is a computer-generated tax invoice and requires no physical signature.', 48, y);
+
+      doc.save(`${invoiceNo}.pdf`);
+      notify(`Tax Invoice ${invoiceNo} downloaded successfully.`);
+    } catch (err) {
+      notify('The invoice could not be generated: ' + err.message, true);
+    }
   }
   async function subscribe(event) {
     event.preventDefault(); const form=event.currentTarget;

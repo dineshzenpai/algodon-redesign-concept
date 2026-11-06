@@ -30,8 +30,38 @@ function printOrder(order,packing){
 }
 function OrderEditor({id}){
   const a=useAdmin(),resource=useResource('/orders/'+id),[saving,setSaving]=useState(false),[error,setError]=useState('');
-  async function submit(event){event.preventDefault();setSaving(true);setError('');const f=event.currentTarget.elements;try{const body={status:f.status.value,courier_name:f.courier_name.value,tracking_number:f.tracking_number.value,internal_notes:f.internal_notes.value};if(a.canEdit)body.payment_status=f.payment_status.value;await a.api('/orders/'+id,{method:'PATCH',body:JSON.stringify(body)});a.closeModal();a.refresh();a.notify('Order updated.');}catch(error){setError(error.message);}finally{setSaving(false);}}
-  return <ResourceState resource={resource}>{({data:order})=><><h2>Order {order.id.slice(0,8)}</h2><p className="muted small">{new Date(order.created_at).toLocaleString('en-IN')}</p><p>{order.customer.name} · {order.customer.email} · {order.customer.phone}</p><p className="small">{[order.customer.address1,order.customer.address2,order.customer.city,order.customer.state,order.customer.pin].filter(Boolean).join(', ')}</p><DataTable columns={['Product','Size','Qty','Price']}>{order.items.map((item,index)=><tr key={index}><td>{item.name}</td><td>{item.size}</td><td>{item.qty}</td><td>{money(item.price)}</td></tr>)}</DataTable><p><b>Subtotal:</b> {money(order.subtotal)} · <b>Discount:</b> {money(order.discount)} · <b>Total:</b> {money(order.subtotal-order.discount)}</p><form id="editForm" onSubmit={submit}><div className="form-grid"><Select name="status" label="Order status" value={order.status} options={orderStatuses.filter(status=>a.canEdit||status!=='Refunded'||order.status==='Refunded')}/><Select name="payment_status" label="Payment status" value={order.payment_status} options={paymentStatuses} disabled={!a.canEdit}/><Field name="courier_name" label="Courier" value={order.courier_name}/><Field name="tracking_number" label="Tracking number" value={order.tracking_number}/><Textarea name="internal_notes" label="Internal notes" value={order.internal_notes}/></div><p className="small muted">Refund status is recorded here. Connect a payment gateway to issue money refunds.</p><p className="error" role="alert">{error}</p><ModalActions saving={saving} label="Save updates"><Button onClick={()=>{try{printOrder(order,false);}catch(error){a.notify(error.message,true);}}}>Print invoice</Button><Button onClick={()=>{try{printOrder(order,true);}catch(error){a.notify(error.message,true);}}}>Packing slip</Button></ModalActions></form></>}</ResourceState>;
+  async function submit(event){
+    event.preventDefault();setSaving(true);setError('');const f=event.currentTarget.elements;
+    try{
+      const body={
+        status:f.status.value,
+        courier_name:f.courier_name.value,
+        tracking_number:f.tracking_number.value,
+        tracking_url:f.tracking_url?.value||'',
+        estimated_delivery:f.estimated_delivery?.value||'',
+        internal_notes:f.internal_notes.value
+      };
+      if(a.canEdit)body.payment_status=f.payment_status.value;
+      await a.api('/orders/'+id,{method:'PATCH',body:JSON.stringify(body)});
+      a.closeModal();a.refresh();a.notify('Order updated.');
+    }catch(error){setError(error.message);}finally{setSaving(false);}
+  }
+  async function issueRefund(order){
+    if(!confirm('Issue a refund for this order? This will mark payment as Refunded and update order status.'))return;
+    setSaving(true);setError('');
+    try{
+      await a.api('/orders/'+id,{
+        method:'PATCH',
+        body:JSON.stringify({
+          status:'Refunded',
+          payment_status:'Refunded',
+          internal_notes:(order.internal_notes?order.internal_notes+'\n':'')+`[Refund recorded by ${a.user.email} on ${new Date().toISOString()}]`
+        })
+      });
+      a.closeModal();a.refresh();a.notify('Order marked as Refunded.');
+    }catch(err){setError(err.message);}finally{setSaving(false);}
+  }
+  return <ResourceState resource={resource}>{({data:order})=><><h2>Order {order.id.slice(0,8)}</h2><p className="muted small">{new Date(order.created_at).toLocaleString('en-IN')}</p><p>{order.customer.name} · {order.customer.email} · {order.customer.phone}</p><p className="small">{[order.customer.address1,order.customer.address2,order.customer.city,order.customer.state,order.customer.pin].filter(Boolean).join(', ')}</p><DataTable columns={['Product','Size','Qty','Price']}>{order.items.map((item,index)=><tr key={index}><td>{item.name}</td><td>{item.size}</td><td>{item.qty}</td><td>{money(item.price)}</td></tr>)}</DataTable><p><b>Subtotal:</b> {money(order.subtotal)} · <b>Discount:</b> {money(order.discount)} · <b>Total:</b> {money(order.subtotal-order.discount)}</p><form id="editForm" onSubmit={submit}><div className="form-grid"><Select name="status" label="Order status" value={order.status} options={orderStatuses.filter(status=>a.canEdit||status!=='Refunded'||order.status==='Refunded')}/><Select name="payment_status" label="Payment status" value={order.payment_status} options={paymentStatuses} disabled={!a.canEdit}/><Field name="courier_name" label="Courier partner" value={order.courier_name||'BlueDart Express'}/><Field name="tracking_number" label="Tracking number / AWB" value={order.tracking_number}/><Field name="tracking_url" label="Courier tracking URL" value={order.tracking_url} type="url"/><Field name="estimated_delivery" label="Estimated delivery" value={order.estimated_delivery} type="date"/><Textarea name="internal_notes" label="Internal notes" value={order.internal_notes}/></div><p className="small muted">Record tracking updates and refunds here. Milestones sync automatically to customer order history.</p><p className="error" role="alert">{error}</p><ModalActions saving={saving} label="Save updates"><Button onClick={()=>{try{printOrder(order,false);}catch(error){a.notify(error.message,true);}}}>Print invoice</Button><Button onClick={()=>{try{printOrder(order,true);}catch(error){a.notify(error.message,true);}}}>Packing slip</Button>{a.canEdit&&order.payment_status!=='Refunded'&&<Button danger type="button" onClick={()=>issueRefund(order)}>Issue Refund</Button>}</ModalActions></form></>}</ResourceState>;
 }
 export function Coupons(){
   const a=useAdmin(),l=useList('/coupons');

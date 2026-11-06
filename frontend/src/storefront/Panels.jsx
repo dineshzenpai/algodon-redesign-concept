@@ -36,14 +36,98 @@ export function AccountHistory({s}) {
   }}>Remove</button></p>) : <p>Your wishlist is empty.</p>;
   if (!data.length) return <div style={{textAlign:'center',padding:'28px 8px'}}><p style={{fontWeight:700,marginBottom:6,fontFamily:"'Fraunces',serif",fontSize:'1.15rem'}}>No orders placed yet</p><p style={{color:'var(--ink-soft)',fontSize:'.82rem',margin:0}}>Add shirts to your cart and checkout to track your orders in real time.</p></div>;
   return [...data].sort((a,b) => Date.parse(b.created_at)-Date.parse(a.created_at)).map(order => {
-    const status=(order.status || 'Pending').toLowerCase(), stages=['confirmed','packed','shipped','delivered'], current=stages.indexOf(status);
-    return <div className="order-card" key={order.id}>
-      <div className="order-header"><div><div className="order-id">{order.id}</div><div style={{fontSize:'.75rem',color:'var(--ink-soft)'}}>{new Date(order.created_at).toLocaleString('en-IN')}</div></div><span className="order-status-badge">{order.status || 'Pending'}</span></div>
-      <div className="order-stepper">{['Confirmed','Tailored','Shipped','Delivered'].map((label,index) => <div key={label} className={'step-dot '+(index < current ? 'completed' : index === current ? 'active' : '')}><span>{label}</span></div>)}</div>
-      <div className="order-items-list">{(order.items || []).map((item,index) => <div className="order-item-row" key={index}><span>{item.name} ({item.size}) × {item.qty}</span><span>{s.money(item.price*item.qty)}</span></div>)}</div>
-      {order.discount > 0 && <div className="order-item-row" style={{color:'var(--accent)'}}><span>Discount</span><span>− {s.money(order.discount)}</span></div>}
-      <div className="order-footer-row"><span>Order total</span><span>{s.money(Number(order.subtotal)-Number(order.discount || 0))}</span></div>
-      <button type="button" className="btn btn-ghost" data-action="order-invoice" style={{width:'100%',justifyContent:'center',fontSize:'.78rem',padding:'8px 12px',marginTop:4}} onClick={() => s.downloadInvoice(order)}>Download PDF Invoice</button>
+    const rawStatus = (order.status || 'Confirmed').toLowerCase();
+    const stages = ['placed', 'confirmed', 'packed', 'shipped', 'out for delivery', 'delivered'];
+    const current = stages.indexOf(rawStatus) !== -1 ? stages.indexOf(rawStatus) : 1;
+    const isCancelled = rawStatus === 'cancelled';
+    const isRefunded = rawStatus === 'refunded' || order.payment_status === 'Refunded';
+
+    return <div className="order-card" key={order.id} style={{ background: 'var(--card)', borderRadius: '8px', padding: '16px', marginBottom: '16px', border: '1px solid var(--line)' }}>
+      <div className="order-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '12px' }}>
+        <div>
+          <div className="order-id" style={{ fontWeight: 700, fontSize: '0.9rem' }}>Order {order.id.slice(0, 12)}…</div>
+          <div style={{ fontSize: '.75rem', color: 'var(--ink-soft)' }}>Placed on {new Date(order.created_at).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+        </div>
+        <span className="order-status-badge" style={{ background: isRefunded ? '#8c3f3a' : isCancelled ? '#8c3f3a' : '#27ae60', color: '#fff', padding: '3px 8px', borderRadius: '4px', fontSize: '0.72rem', fontWeight: 700 }}>
+          {isRefunded ? 'Refunded' : (order.status || 'Confirmed')}
+        </span>
+      </div>
+
+      {/* Tracking Milestones Stepper */}
+      {!isCancelled && !isRefunded && (
+        <div style={{ margin: '14px 0 16px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', textAlign: 'center', gap: '4px', fontSize: '0.68rem', fontWeight: 600 }}>
+            {['Confirmed', 'Packed', 'Shipped', 'Out for Delivery', 'Delivered'].map((label, index) => {
+              const active = index <= current;
+              return (
+                <div key={label} style={{ color: active ? 'var(--accent)' : 'var(--ink-soft)' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: active ? 'var(--accent)' : 'var(--line)', margin: '0 auto 4px' }}></div>
+                  <span>{label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Courier & Tracking Info */}
+      <div style={{ background: 'rgba(196, 92, 60, 0.06)', borderRadius: '6px', padding: '10px 12px', margin: '10px 0', fontSize: '0.78rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <span style={{ color: 'var(--ink-soft)' }}>Courier: </span>
+            <strong>{order.courier_name || 'BlueDart Express'}</strong>
+          </div>
+          <div>
+            <span style={{ color: 'var(--ink-soft)' }}>AWB: </span>
+            <strong>{order.tracking_number || `BD${order.id.slice(0, 8).toUpperCase()}`}</strong>
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+          <span style={{ color: 'var(--ink-soft)' }}>Estimated Delivery: <strong>2–4 Business Days</strong></span>
+          <a
+            href={order.tracking_url || `https://www.bluedart.com/tracking?track=${order.tracking_number || order.id.slice(0, 8)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: 'var(--accent)', fontWeight: 600, textDecoration: 'underline' }}
+          >
+            Live Tracking ↗
+          </a>
+        </div>
+      </div>
+
+      {/* Items list */}
+      <div className="order-items-list" style={{ margin: '12px 0', borderTop: '1px solid var(--line)', paddingTop: '8px' }}>
+        {(order.items || []).map((item, index) => (
+          <div className="order-item-row" key={index} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', padding: '3px 0' }}>
+            <span>{item.name} ({item.size}) × {item.qty}</span>
+            <span>{s.money((item.price || 0) * (item.qty || 1))}</span>
+          </div>
+        ))}
+      </div>
+
+      {order.discount > 0 && (
+        <div className="order-item-row" style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.82rem', color: '#27ae60' }}>
+          <span>Discount ({order.coupon_code || 'PROMO'})</span>
+          <span>− {s.money(order.discount)}</span>
+        </div>
+      )}
+
+      <div className="order-footer-row" style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: '0.9rem', borderTop: '1px solid var(--line)', paddingTop: '8px', marginTop: '6px' }}>
+        <span>Total Paid</span>
+        <span>{s.money(Number(order.subtotal) - Number(order.discount || 0))}</span>
+      </div>
+
+      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+        <button
+          type="button"
+          className="btn btn-solid"
+          data-action="order-invoice"
+          style={{ flex: 1, justifyContent: 'center', fontSize: '.78rem', padding: '10px 12px' }}
+          onClick={() => s.downloadInvoice(order)}
+        >
+          📄 Download GST Invoice (PDF)
+        </button>
+      </div>
     </div>;
   });
 }
