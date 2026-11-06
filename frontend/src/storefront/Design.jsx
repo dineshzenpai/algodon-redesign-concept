@@ -285,12 +285,15 @@ export function AccountDrawer({s}) {
                           <input
                             type="text"
                             id="otpCodeInput"
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
                             maxLength={6}
-                            placeholder="123456"
+                            placeholder="• • • • • •"
                             value={s.otpCode}
                             onChange={e => s.setOtpCode(e.target.value.replace(/\D/g, ''))}
-                            style={{ letterSpacing: "4px", fontSize: "1.2rem", textAlign: "center" }}
+                            style={{ letterSpacing: "6px", fontSize: "1.2rem", textAlign: "center" }}
                             required
+                            autoFocus
                           />
                         </div>
                         <p className="field-error">{s.authError}</p>

@@ -249,22 +249,20 @@ export function useStorefront() {
     setBusy('otp_send');
     setAuthError('');
     try {
-      const res = await request('/api/auth/otp/send', {
+      await request('/api/auth/otp/send', {
         method: 'POST',
         body: JSON.stringify({ identifier: target })
       });
       setOtpSent(true);
       setOtpIdentifier(target);
-      if (res?.otp) {
-        setOtpCode(res.otp);
-        notify(`Verification code: ${res.otp}`);
-        setOtpNotice(`Code ${res.otp} sent to ${target}`);
-      } else {
-        notify(`Verification code sent to ${target}`);
-        setOtpNotice(`Verification code sent to ${target}`);
-      }
+      setOtpCode(''); // Keep strictly blank: customer types the code received via SMS
+      const isEmail = target.includes('@');
+      const cleanDigits = target.replace(/\D/g, '');
+      const formatted = isEmail ? target : `+91 ${cleanDigits.slice(-10)}`;
+      notify(`Verification code sent to ${formatted}`);
+      setOtpNotice(`6-digit verification code sent via SMS to ${formatted}. Please enter the code received on your phone.`);
     } catch(err) {
-      setAuthError(err.message);
+      setAuthError(err.message || 'Failed to send verification code. Please try again.');
     } finally {
       setBusy('');
     }

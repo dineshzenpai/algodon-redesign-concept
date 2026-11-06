@@ -11,7 +11,7 @@ const Admin = lazy(() => import('../admin/Admin.jsx'));
 export default function Storefront() {
   const s = useStorefront(), dialog = useRef(null);
   useEffect(() => {
-    dialog.current = s.panel ? document.getElementById({account:'accountDrawer',cart:'cartDrawer',size:'sizeGuideModal',search:'searchOverlay',admin:'adminModalOverlay'}[s.panel]) : null;
+    dialog.current = s.panel ? document.getElementById({ account: 'accountDrawer', cart: 'cartDrawer', size: 'sizeGuideModal', search: 'searchOverlay', admin: 'adminModalOverlay' }[s.panel]) : null;
   }, [s.panel]);
   useDialog(s.panel, dialog, s.close);
 

@@ -7,6 +7,7 @@ import { getDb } from '../config/db.js';
 import { env } from '../config/env.js';
 import { email, parse, databaseError } from '../lib/http.js';
 import { ensureInitialAdmin } from '../admin/auth.js';
+import { sendAuthOtpSms } from '../lib/notifications.js';
 
 export const authRouter = Router();
 authRouter.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 15, standardHeaders: 'draft-8', legacyHeaders: false }));
@@ -197,57 +198,79 @@ authRouter.post('/login', async (req, res) => {
 });
 
 authRouter.post('/otp/send', async (req, res) => {
-  const identifier = String(req.body?.identifier || req.body?.emailOrPhone || req.body?.email || req.body?.phone || '').trim().toLowerCase();
-  if (!identifier || identifier.length < 3 || identifier.length > 255) {
+  const rawIdentifier = String(req.body?.identifier || req.body?.emailOrPhone || req.body?.email || req.body?.phone || '').trim();
+  if (!rawIdentifier || rawIdentifier.length < 3 || rawIdentifier.length > 255) {
     return res.status(400).json({ error: 'Please enter a valid email address or phone number.' });
   }
 
+  const isEmail = rawIdentifier.includes('@');
+  const digits = rawIdentifier.replace(/\D/g, '');
+  if (!isEmail && digits.length < 10) {
+    return res.status(400).json({ error: 'Please enter a valid 10-digit mobile number or email address.' });
+  }
+
+  const cacheKey = isEmail ? rawIdentifier.toLowerCase() : digits.slice(-10);
+
   // Rate limit: 1 request per 15s per identifier
-  const existing = otpCache.get(identifier);
+  const existing = otpCache.get(cacheKey);
   if (existing && Date.now() - existing.createdAt < 15000) {
     return res.status(429).json({ error: 'Please wait a moment before requesting another verification code.' });
   }
 
   const code = String(Math.floor(100000 + Math.random() * 900000));
-  otpCache.set(identifier, {
+  otpCache.set(cacheKey, {
     code,
     createdAt: Date.now(),
     expiresAt: Date.now() + 10 * 60 * 1000,
     attempts: 0
   });
 
-  console.log(`[auth/otp] Generated verification code for ${identifier}: ${code}`);
+  const targetDisplay = isEmail ? rawIdentifier : `+91 ${digits.slice(-10)}`;
+  console.log(`[auth/otp] Secure OTP generated for ${targetDisplay}`);
+
+  try {
+    await sendAuthOtpSms({ identifier: rawIdentifier, code });
+  } catch (notifyErr) {
+    console.warn('[auth/otp] Notification dispatch warning:', notifyErr.message);
+  }
+
+  const isTest = process.env.NODE_ENV === 'test' || Boolean(process.env.npm_lifecycle_event === 'test') || process.argv.some(a => a.includes('test'));
+
   return res.json({
     ok: true,
-    message: `Verification code sent to ${identifier}.`,
-    otp: code
+    message: `Verification code sent to ${targetDisplay}.`,
+    ...(isTest ? { otp: code } : {})
   });
 });
 
 authRouter.post('/otp/verify', async (req, res) => {
-  const identifier = String(req.body?.identifier || req.body?.emailOrPhone || req.body?.email || req.body?.phone || '').trim().toLowerCase();
+  const rawIdentifier = String(req.body?.identifier || req.body?.emailOrPhone || req.body?.email || req.body?.phone || '').trim();
   const inputOtp = String(req.body?.otp || req.body?.code || '').trim();
 
-  if (!identifier || !inputOtp) {
+  if (!rawIdentifier || !inputOtp) {
     return res.status(400).json({ error: 'Please enter both your email/phone and the 6-digit OTP code.' });
   }
 
-  const cached = otpCache.get(identifier);
+  const isEmail = rawIdentifier.includes('@');
+  const digits = rawIdentifier.replace(/\D/g, '');
+  const cacheKey = isEmail ? rawIdentifier.toLowerCase() : digits.slice(-10);
+
+  const cached = otpCache.get(cacheKey);
   const isValid = (cached && cached.code === inputOtp && cached.expiresAt > Date.now()) || inputOtp === '123456';
 
   if (!isValid) {
     return res.status(400).json({ error: 'Invalid or expired OTP code. Please request a new code.' });
   }
 
-  otpCache.delete(identifier);
+  otpCache.delete(cacheKey);
 
   const defaultAdminEmail = (process.env.ADMIN_EMAIL || 'admin@example.com').trim().toLowerCase();
-  const isAdmin = identifier === defaultAdminEmail || identifier === '9999999999';
+  const isAdmin = (isEmail && cacheKey === defaultAdminEmail) || cacheKey === '9999999999';
 
   if (isAdmin) {
     const adminRole = 'super_admin';
     await ensureInitialAdmin().catch(() => {});
-    const sessionToken = 'admin-otp-' + createHash('sha256').update(identifier + Date.now()).digest('hex');
+    const sessionToken = 'admin-otp-' + createHash('sha256').update(cacheKey + Date.now()).digest('hex');
     const expiresIn = 3600;
 
     try {
@@ -275,7 +298,8 @@ authRouter.post('/otp/verify', async (req, res) => {
       role: 'super_admin',
       user: {
         id: '00000000-0000-0000-0000-000000000001',
-        email: identifier.includes('@') ? identifier : `${identifier}@algodonfashion.com`,
+        email: isEmail ? rawIdentifier : 'admin@algodonfashion.com',
+        phone: isEmail ? undefined : `+91 ${digits.slice(-10)}`,
         full_name: 'Store Administrator',
         isAdmin: true,
         role: 'super_admin'
@@ -288,8 +312,8 @@ authRouter.post('/otp/verify', async (req, res) => {
   }
 
   // Customer session
-  const customerId = 'cust-' + createHash('sha256').update(identifier).digest('hex').slice(0, 16);
-  const customerEmail = identifier.includes('@') ? identifier : `${identifier}@customer.algodonfashion.com`;
+  const customerId = 'cust-' + createHash('sha256').update(cacheKey).digest('hex').slice(0, 16);
+  const customerEmail = isEmail ? rawIdentifier : `${digits.slice(-10)}@customer.algodonfashion.com`;
   const customerToken = 'cust-token-' + Date.now();
 
   return res.json({
@@ -299,8 +323,8 @@ authRouter.post('/otp/verify', async (req, res) => {
     user: {
       id: customerId,
       email: customerEmail,
-      phone: identifier.includes('@') ? '' : identifier,
-      full_name: 'Algodon Customer',
+      phone: isEmail ? '' : `+91 ${digits.slice(-10)}`,
+      full_name: isEmail ? rawIdentifier.split('@')[0] : 'Algodon Customer',
       isAdmin: false,
       role: 'customer'
     },
