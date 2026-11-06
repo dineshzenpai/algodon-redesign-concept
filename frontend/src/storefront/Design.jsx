@@ -202,11 +202,11 @@ export function AccountDrawer({s}) {
                         style={{ flex: 1, padding: "9px 12px", borderRadius: "6px", border: "1px solid var(--line)", background: "var(--bg)", color: "var(--ink)", fontSize: "0.85rem" }}
                       />
                       <button type="submit" className="btn btn-solid" style={{ padding: "9px 14px", fontSize: "0.82rem", whiteSpace: "nowrap" }} disabled={s.busy === 'google_auth'}>
-                        {s.busy === 'google_auth' ? 'Sending…' : 'Send Code →'}
+                        {s.busy === 'google_auth' ? 'Signing in…' : 'Sign In with Google →'}
                       </button>
                     </div>
                     <div style={{ fontSize: "0.72rem", color: "var(--ink-soft)", marginTop: "6px" }}>
-                      A secure 6-digit login code will be sent to your Gmail inbox.
+                      Instant Google connection · No password or verification code needed.
                     </div>
                   </form>
                 )}

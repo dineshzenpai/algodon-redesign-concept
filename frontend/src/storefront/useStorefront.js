@@ -30,6 +30,7 @@ export function useStorefront() {
   const [cart,setCart] = useState(() => cartOwner() ? [] : normalizeCart(readStorage(CART,[])));
   const [coupon,setCoupon] = useState(null), [couponCode,setCouponCode] = useState(''), [couponMessage,setCouponMessage] = useState('');
   const [user,setUser] = useState(() => readStorage('algodon_customer_user', null));
+  const [customerToken,setCustomerToken] = useState(() => readStorage('algodon_customer_token', ''));
   const [client,setClient] = useState(null), [authReady,setAuthReady] = useState(false);
   const [isAdmin,setIsAdmin] = useState(() => Boolean(readStorage('algodon_customer_user', null)?.isAdmin));
   const [adminRole,setAdminRole] = useState(() => readStorage('algodon_customer_user', null)?.role || null);
@@ -49,7 +50,7 @@ export function useStorefront() {
   const [otpNotice,setOtpNotice] = useState('');
   const [googleModal,setGoogleModal] = useState(false);
   const [showGoogleEmailInput,setShowGoogleEmailInput] = useState(false);
-  const [googleEmailInput,setGoogleEmailInput] = useState('');
+  const [googleEmailInput,setGoogleEmailInput] = useState(() => readStorage('algodon_last_google_email', ''));
   const customerId = useRef(null), cartRef = useRef(cart), toastTimer = useRef();
   cartRef.current = cart;
   const notify = useCallback(message => { setToast(message); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''),4000); },[]);
@@ -77,9 +78,14 @@ export function useStorefront() {
   };
   const changeAuth = mode => { setAuthMode(mode); setAuthError(''); };
   const accountFetch = useCallback(async (url,options = {}) => {
-    const session = client ? (await client.auth.getSession()).data.session : null;
-    return request(url,{...options,headers:{...options.headers,...(session ? {Authorization:`Bearer ${session.access_token}`} : {})}});
-  },[client]);
+    let token = customerToken;
+    if (!token && client) {
+      try {
+        token = (await client.auth.getSession()).data.session?.access_token;
+      } catch {}
+    }
+    return request(url,{...options,headers:{...options.headers,...(token ? {Authorization:`Bearer ${token}`} : {})}});
+  },[client, customerToken]);
 
   useEffect(() => {
     let cancelled = false, subscription;
@@ -342,7 +348,11 @@ export function useStorefront() {
             }
           }
         });
-        window.google.accounts.id.prompt();
+        window.google.accounts.id.prompt((notification) => {
+          if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
+            setShowGoogleEmailInput(true);
+          }
+        });
         return;
       } catch (err) {
         console.warn('[auth] Google One Tap notice:', err.message);
@@ -350,8 +360,8 @@ export function useStorefront() {
         setBusy('');
       }
     }
-    // If native Google OAuth is not configured yet, prompt customer to enter their own Google email
-    setShowGoogleEmailInput(prev => !prev);
+    // If native Google OAuth is not configured yet or not available, open the email connection prompt
+    setShowGoogleEmailInput(true);
   }
 
   async function submitGoogleEmail(e) {
@@ -364,12 +374,9 @@ export function useStorefront() {
     setBusy('google_auth');
     setAuthError('');
     try {
-      await sendOtp(emailToUse);
-      setShowGoogleEmailInput(false);
-      setLoginMethod('otp');
-      notify(`Verification code sent to ${emailToUse}. Enter the code below to complete sign-in.`);
+      await completeGoogleSignIn({ email: emailToUse, name: emailToUse.split('@')[0], provider: 'google' });
     } catch (err) {
-      setAuthError(err.message || 'Could not send verification code.');
+      setAuthError(err.message || 'Could not complete Google Sign-In.');
     } finally {
       setBusy('');
     }
@@ -393,6 +400,15 @@ export function useStorefront() {
           isAdmin: Boolean(res.isAdmin),
           role: res.role || 'customer'
         };
+        const token = res.session?.access_token || '';
+        if (token) {
+          setCustomerToken(token);
+          writeStorage('algodon_customer_token', token);
+        }
+        if (body.email) {
+          writeStorage('algodon_last_google_email', body.email);
+          setGoogleEmailInput(body.email);
+        }
         setUser(loggedUser);
         writeStorage('algodon_customer_user', loggedUser);
         setIsAdmin(Boolean(res.isAdmin));
@@ -439,6 +455,8 @@ export function useStorefront() {
       setIsAdmin(false);
       setAdminRole(null);
       setUser(null);
+      setCustomerToken('');
+      writeStorage('algodon_customer_token', null);
       writeStorage('algodon_customer_user', null);
       setGuest(false);
       setCart([]);

@@ -510,6 +510,12 @@ authRouter.post('/password-update', customerAuth, async (req, res) => {
   res.json({ ok: true });
 });
 authRouter.post('/logout', customerAuth, async (req, res) => {
+  if (req.customerToken?.startsWith('cust-')) {
+    customerSessions.delete(req.customerToken);
+    res.clearCookie('algodon_admin_session', { path: '/api/admin' });
+    return res.json({ ok: true });
+  }
+
   let expiresAt = Date.now() + 3600000;
   try { const exp = JSON.parse(Buffer.from(req.customerToken.split('.')[1], 'base64url')).exp; if (Number.isFinite(exp)) expiresAt = exp * 1000; } catch { /* Auth has already verified the token. */ }
   const recorded = await getDb().from('customer_revoked_tokens').insert({ token_hash: tokenHash(req.customerToken), user_id: req.customer.id, expires_at: new Date(expiresAt).toISOString() });
