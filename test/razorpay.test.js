@@ -1,0 +1,136 @@
+import test, { describe, it, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+
+describe('Razorpay Standard Checkout backend endpoints', () => {
+  let server;
+  let baseUrl;
+  const keySecret = 'vMpk4UX8O6mqF00S6598QBQ3';
+
+  before(async () => {
+    process.env.RAZORPAY_KEY_ID = 'rzp_test_TwvLKjX2XuZDFi';
+    process.env.RAZORPAY_KEY_SECRET = keySecret;
+
+    const appModule = await import('../backend/src/app.js');
+    const app = appModule.default;
+
+    await new Promise((resolve) => {
+      server = app.listen(0, '127.0.0.1', () => {
+        const address = server.address();
+        baseUrl = `http://127.0.0.1:${address.port}`;
+        resolve();
+      });
+    });
+  });
+
+  after(async () => {
+    if (server) {
+      await new Promise((resolve) => server.close(resolve));
+    }
+  });
+
+  it('POST /api/create-order rejects amounts under 100 paise', async () => {
+    const res = await fetch(`${baseUrl}/api/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: 50, currency: 'INR' })
+    });
+
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.match(data.error, /at least 100 paise/i);
+  });
+
+  it('POST /api/create-order rejects missing amount', async () => {
+    const res = await fetch(`${baseUrl}/api/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ currency: 'INR' })
+    });
+
+    assert.equal(res.status, 400);
+  });
+
+  it('POST /api/create-order creates order with valid amount and returns order_id', async () => {
+    const res = await fetch(`${baseUrl}/api/create-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        amount: 25000, // 250 INR
+        currency: 'INR',
+        receipt: `test_${Date.now()}`
+      })
+    });
+
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.ok(data.order_id);
+    assert.ok(data.order_id.startsWith('order_'));
+    assert.equal(data.amount, 25000);
+    assert.equal(data.currency, 'INR');
+  });
+
+  it('POST /api/verify-payment returns 400 for missing fields', async () => {
+    const res = await fetch(`${baseUrl}/api/verify-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order_id: 'order_123' })
+    });
+
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.equal(data.success, false);
+    assert.match(data.error, /missing/i);
+  });
+
+  it('POST /api/verify-payment rejects signature mismatch with 400', async () => {
+    const res = await fetch(`${baseUrl}/api/verify-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        razorpay_order_id: 'order_mock_123',
+        razorpay_payment_id: 'pay_mock_456',
+        razorpay_signature: 'invalid_hex_signature_deadbeef1234'
+      })
+    });
+
+    assert.equal(res.status, 400);
+    const data = await res.json();
+    assert.equal(data.success, false);
+    assert.match(data.error, /signature mismatch/i);
+  });
+
+  it('POST /api/verify-payment successfully verifies valid HMAC-SHA256 signature', async () => {
+    const orderId = 'order_valid_12345';
+    const paymentId = 'pay_valid_67890';
+    const validSignature = crypto
+      .createHmac('sha256', keySecret)
+      .update(`${orderId}|${paymentId}`)
+      .digest('hex');
+
+    const res = await fetch(`${baseUrl}/api/verify-payment`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        razorpay_order_id: orderId,
+        razorpay_payment_id: paymentId,
+        razorpay_signature: validSignature
+      })
+    });
+
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.success, true);
+    assert.equal(data.order_id, orderId);
+    assert.equal(data.payment_id, paymentId);
+  });
+
+  it('POST /api/config returns razorpay key ID and paymentsEnabled true', async () => {
+    const res = await fetch(`${baseUrl}/api/config`);
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.checkout?.paymentsEnabled, true);
+    assert.equal(data.checkout?.razorpayKeyId, 'rzp_test_TwvLKjX2XuZDFi');
+  });
+});
+

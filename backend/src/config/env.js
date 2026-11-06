@@ -54,6 +54,8 @@ const envSchema = z.object({
   SUPABASE_PUBLISHABLE_KEY: z.string().optional().or(z.literal('')),
   SUPABASE_SECRET_KEY: z.string().optional().or(z.literal('')),
   DATABASE_URL: z.string().optional(),
+  RAZORPAY_KEY_ID: z.string().optional().default(''),
+  RAZORPAY_KEY_SECRET: z.string().optional().default(''),
 }).refine(
   (data) => data.NODE_ENV !== 'production' || (data.SUPABASE_URL && data.SUPABASE_PUBLISHABLE_KEY && data.SUPABASE_SECRET_KEY),
   { message: 'SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, and SUPABASE_SECRET_KEY are required in production' }
@@ -100,5 +102,9 @@ export const env = {
     anonKey: _env.data.SUPABASE_PUBLISHABLE_KEY || '',
     serviceRoleKey: _env.data.SUPABASE_SECRET_KEY || '',
     dbUrl: _env.data.DATABASE_URL || ''
+  },
+  razorpay: {
+    keyId: _env.data.RAZORPAY_KEY_ID || '',
+    keySecret: _env.data.RAZORPAY_KEY_SECRET || ''
   }
 };

@@ -13,6 +13,7 @@ import { accountRouter } from './customer/routes.js';
 import { createMailer } from './lib/mail.js';
 import { adminRouter } from './admin/routes.js';
 import { publicRouter } from './storefront/routes.js';
+import { razorpayRouter } from './payments/razorpay.js';
 import { requireAdmin, requireAdminCsrf } from './admin/auth.js';
 
 
@@ -26,13 +27,18 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'https://cdn.jsdelivr.net'],
+      scriptSrc: ["'self'", 'https://cdn.jsdelivr.net', 'https://checkout.razorpay.com'],
       scriptSrcAttr: ["'none'"],
       styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
       fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
       imgSrc: ["'self'", 'https:', 'data:', 'blob:'],
-      connectSrc: ["'self'", ...(env.supabase.url ? [env.supabase.url, env.supabase.url.replace(/^https:/, 'wss:')] : [])],
-      frameSrc: ["'self'"],
+      connectSrc: [
+        "'self'",
+        'https://api.razorpay.com',
+        'https://lumberjack.razorpay.com',
+        ...(env.supabase.url ? [env.supabase.url, env.supabase.url.replace(/^https:/, 'wss:')] : [])
+      ],
+      frameSrc: ["'self'", 'https://api.razorpay.com'],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
       formAction: ["'self'"],
@@ -77,11 +83,11 @@ app.use('/api', limiter);
 
 // API Routes
 app.get('/js/config.js', (req, res) => {
-  res.type('application/javascript').set('Cache-Control', 'no-store').send(`window.APP_CONFIG = ${JSON.stringify({ SUPABASE_URL: env.supabase.url, SUPABASE_PUBLISHABLE_KEY: env.supabase.anonKey }).replace(/</g, '\\u003c')};`);
+  res.type('application/javascript').set('Cache-Control', 'no-store').send(`window.APP_CONFIG = ${JSON.stringify({ SUPABASE_URL: env.supabase.url, SUPABASE_PUBLISHABLE_KEY: env.supabase.anonKey, RAZORPAY_KEY_ID: env.razorpay.keyId }).replace(/</g, '\\u003c')};`);
 });
 app.get('/api/config', (req, res) => res.json({
   supabase: { url: env.supabase.url, publishableKey: env.supabase.anonKey },
-  checkout: { paymentsEnabled: false }
+  checkout: { paymentsEnabled: Boolean(env.razorpay.keyId), razorpayKeyId: env.razorpay.keyId }
 }));
 app.get('/api/health', (req, res) => {
   res.json({ status: 'API is running' });
@@ -98,6 +104,7 @@ app.get('/api/health/ready', async (req, res) => {
 app.use('/api/auth', authRouter);
 app.use('/api/account', accountRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api', razorpayRouter);
 app.use('/api', publicRouter);
 
 const invoiceRequestSchema = z.object({

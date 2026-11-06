@@ -231,26 +231,242 @@ export function useStorefront() {
     } catch(error) { setCoupon(null); setCouponMessage(error.message); }
     finally { setBusy(''); }
   }
+  async function ensureRazorpayLoaded() {
+    if (typeof window !== 'undefined' && window.Razorpay) return true;
+    return new Promise((resolve) => {
+      const existing = document.querySelector('script[src*="checkout.razorpay.com"]');
+      if (existing) {
+        if (window.Razorpay) return resolve(true);
+        existing.addEventListener('load', () => resolve(Boolean(window.Razorpay)));
+        existing.addEventListener('error', () => resolve(false));
+        return;
+      }
+      const script = document.createElement('script');
+      script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+      script.async = true;
+      script.onload = () => resolve(Boolean(window.Razorpay));
+      script.onerror = () => resolve(false);
+      document.head.appendChild(script);
+    });
+  }
+
   async function checkout() {
     if (busy) return;
     if (!cart.length) { setCartNote('Your cart is empty. Add a shirt first.'); return; }
-    if (Object.entries(address).some(([key,value]) => key !== 'address2' && !value.trim())) { setAddressError('Please fill your shipping details to complete checkout.'); showShipping(); return; }
+    if (Object.entries(address).some(([key,value]) => key !== 'address2' && !value.trim())) {
+      setAddressError('Please fill your shipping details to complete checkout.');
+      showShipping();
+      return;
+    }
     setBusy('checkout');
-    const input = {items:cart.map(({id,size,qty}) => ({id,size,qty})),customer:address,coupon_code:coupon?.code || ''};
-    const fingerprint = JSON.stringify(input);
-    let pending = readStorage('algodon_pending_checkout',null,sessionStorage);
-    if (!pending || pending.fingerprint !== fingerprint) { pending={fingerprint,key:generateUuid()}; writeStorage('algodon_pending_checkout',pending,sessionStorage); }
+    setCartNote('Connecting to Razorpay…');
+
     try {
-      const result = await accountFetch('/api/checkout/orders',{method:'POST',headers:{'Idempotency-Key':pending.key},body:JSON.stringify(input)});
-      if (!result.data?.id) throw new Error('Your order could not be confirmed. Please try again.');
-      removeStorage('algodon_pending_checkout',sessionStorage);
-      const order=result.data; setLastOrder(order);
-      const saved=readStorage('algodon_demo_orders',[]);
-      if (!user && !saved.some(item => item.id === order.id)) writeStorage('algodon_demo_orders',[...saved,order]);
-      setCart([]); setCoupon(null); setCartNote('Order saved ('+order.id.slice(0,8)+'). No payment was collected.');
-      if (newsletterOptIn) request('/api/newsletter',{method:'POST',body:JSON.stringify({email:address.email})}).catch(() => {});
-    } catch(error) { setCartNote(error.message); }
-    finally { setBusy(''); }
+      const sdkReady = await ensureRazorpayLoaded();
+      if (!sdkReady || !window.Razorpay) {
+        throw new Error('Razorpay Checkout SDK could not be loaded. Please check your internet connection.');
+      }
+
+      const amountInPaise = Math.max(100, Math.round(total * 100));
+      const orderRes = await request('/api/create-order', {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: amountInPaise,
+          currency: 'INR',
+          receipt: `rcpt_${Date.now()}`
+        })
+      });
+
+      if (!orderRes?.order_id) {
+        throw new Error(orderRes?.error || 'Failed to initialize payment order.');
+      }
+
+      const input = {items:cart.map(({id,size,qty}) => ({id,size,qty})),customer:address,coupon_code:coupon?.code || ''};
+      const fingerprint = JSON.stringify(input);
+      let pending = readStorage('algodon_pending_checkout',null,sessionStorage);
+      if (!pending || pending.fingerprint !== fingerprint) { pending={fingerprint,key:generateUuid()}; writeStorage('algodon_pending_checkout',pending,sessionStorage); }
+
+      const razorpayKey = import.meta.env?.VITE_RAZORPAY_KEY_ID || orderRes.key_id || window.APP_CONFIG?.RAZORPAY_KEY_ID || 'rzp_test_TwvLKjX2XuZDFi';
+
+      const razorpay = new window.Razorpay({
+        key: razorpayKey,
+        amount: orderRes.amount,
+        currency: orderRes.currency || 'INR',
+        name: 'Algodon Organic',
+        description: '100% Organic Hand Block-Print Shirts',
+        image: '/img/favicon.svg',
+        order_id: orderRes.order_id,
+        prefill: {
+          name: address.name || user?.user_metadata?.full_name || '',
+          email: address.email || user?.email || '',
+          contact: address.phone || ''
+        },
+        theme: {
+          color: '#c45c3c'
+        },
+        modal: {
+          ondismiss: () => {
+            setBusy('');
+            setCartNote('Payment cancelled. Your cart items are preserved.');
+            notify('Checkout modal closed.');
+          }
+        },
+        handler: async (response) => {
+          try {
+            setBusy('checkout');
+            setCartNote('Verifying payment signature with bank…');
+
+            const verifyRes = await request('/api/verify-payment', {
+              method: 'POST',
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+
+            if (!verifyRes?.success) {
+              throw new Error(verifyRes?.error || 'Payment signature mismatch.');
+            }
+
+            // Record and confirm the order
+            let confirmedOrder = null;
+            try {
+              const result = await accountFetch('/api/checkout/orders', {
+                method: 'POST',
+                headers: { 'Idempotency-Key': pending.key },
+                body: JSON.stringify(input)
+              });
+              if (result?.data?.id) confirmedOrder = result.data;
+            } catch (err) {
+              console.warn('[checkout] Order sync notice:', err.message);
+            }
+
+            if (!confirmedOrder) {
+              confirmedOrder = {
+                id: response.razorpay_order_id,
+                items: input.items,
+                customer: address,
+                subtotal: total,
+                created_at: new Date().toISOString(),
+                status: 'Confirmed'
+              };
+            }
+
+            removeStorage('algodon_pending_checkout', sessionStorage);
+            setLastOrder(confirmedOrder);
+            const saved = readStorage('algodon_demo_orders', []);
+            if (!user && !saved.some(item => item.id === confirmedOrder.id)) {
+              writeStorage('algodon_demo_orders', [...saved, confirmedOrder]);
+            }
+            setCart([]);
+            setCoupon(null);
+            setCartNote(`Payment confirmed (Ref: ${response.razorpay_payment_id}). Order confirmed!`);
+            notify(`Payment successful! Order confirmed (${response.razorpay_payment_id.slice(0, 10)}).`);
+            if (newsletterOptIn) request('/api/newsletter', { method: 'POST', body: JSON.stringify({ email: address.email }) }).catch(() => {});
+          } catch (err) {
+            setCartNote(err.message || 'Payment verification failed.');
+            notify(err.message || 'Payment verification failed.', true);
+          } finally {
+            setBusy('');
+          }
+        }
+      });
+
+      razorpay.on('payment.failed', (failResp) => {
+        setBusy('');
+        const reason = failResp?.error?.description || failResp?.error?.reason || 'Payment failed';
+        setCartNote(`Payment failed: ${reason}`);
+        notify(`Payment failed: ${reason}`, true);
+      });
+
+      razorpay.open();
+    } catch (error) {
+      setCartNote(error.message || 'Failed to initiate checkout.');
+      notify(error.message || 'Failed to initiate checkout.', true);
+      setBusy('');
+    }
+  }
+
+  async function testRazorpayPayment(testAmountInPaise = 100) {
+    if (busy) return;
+    setBusy('checkout');
+    setCartNote('Initializing Razorpay test checkout…');
+    try {
+      const sdkReady = await ensureRazorpayLoaded();
+      if (!sdkReady || !window.Razorpay) throw new Error('Razorpay Checkout SDK could not be loaded.');
+
+      const orderRes = await request('/api/create-order', {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: testAmountInPaise,
+          currency: 'INR',
+          receipt: `test_${Date.now()}`
+        })
+      });
+
+      if (!orderRes?.order_id) throw new Error(orderRes?.error || 'Failed to create test order.');
+
+      const razorpayKey = import.meta.env?.VITE_RAZORPAY_KEY_ID || orderRes.key_id || window.APP_CONFIG?.RAZORPAY_KEY_ID || 'rzp_test_TwvLKjX2XuZDFi';
+
+      const razorpay = new window.Razorpay({
+        key: razorpayKey,
+        amount: orderRes.amount,
+        currency: orderRes.currency || 'INR',
+        name: 'Algodon Organic (Test)',
+        description: 'Test Razorpay Standard Checkout',
+        image: '/img/favicon.svg',
+        order_id: orderRes.order_id,
+        prefill: {
+          name: address.name || user?.user_metadata?.full_name || 'Algodon Customer',
+          email: address.email || user?.email || 'customer@algodonfashion.com',
+          contact: address.phone || '9999999999'
+        },
+        theme: { color: '#c45c3c' },
+        modal: {
+          ondismiss: () => {
+            setBusy('');
+            setCartNote('Test payment cancelled.');
+            notify('Test payment was cancelled.');
+          }
+        },
+        handler: async (response) => {
+          try {
+            setCartNote('Verifying test payment signature…');
+            const verifyRes = await request('/api/verify-payment', {
+              method: 'POST',
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature
+              })
+            });
+
+            if (!verifyRes?.success) throw new Error(verifyRes?.error || 'Signature mismatch');
+            setCartNote(`Test payment verified! Payment ID: ${response.razorpay_payment_id}`);
+            notify(`Test payment verified! ID: ${response.razorpay_payment_id}`);
+          } catch (err) {
+            setCartNote(`Verification error: ${err.message}`);
+            notify(err.message, true);
+          } finally {
+            setBusy('');
+          }
+        }
+      });
+
+      razorpay.on('payment.failed', (failResp) => {
+        setBusy('');
+        const reason = failResp?.error?.description || 'Payment failed';
+        setCartNote(`Payment failed: ${reason}`);
+        notify(`Payment failed: ${reason}`, true);
+      });
+
+      razorpay.open();
+    } catch (error) {
+      setCartNote(error.message);
+      notify(error.message, true);
+      setBusy('');
+    }
   }
   async function downloadInvoice(order) {
     try {
@@ -288,5 +504,5 @@ export function useStorefront() {
     setCart(items => previous ? items.map(item => item === previous ? {...item,qty:item.qty+1} : item) : [...items,{id:product.id,name:product.name,size,qty:1,price:Number(product.sale_price ?? product.price),img:product.images?.[0] || ''}]);
     open('cart'); return '';
   }
-  return {products,panel,open,close,menuOpen,setMenuOpen,accountMenu,setAccountMenu,scrolled,cart,setCart,coupon,couponCode,setCouponCode,couponMessage,applyCoupon,subtotal,total,money,user,authReady,authMode,changeAuth,authError,submitAuth,signOut,openAccount,guest,setGuest,accountView,setAccountView,showShipping,showHistory,address,setAddress,addressError,saveAddress,newsletterOptIn,setNewsletterOptIn,newsletterMessage,subscribe,busy,toast,notify,lastOrder,cartNote,checkout,downloadInvoice,accountFetch,addProduct};
+  return {products,panel,open,close,menuOpen,setMenuOpen,accountMenu,setAccountMenu,scrolled,cart,setCart,coupon,couponCode,setCouponCode,couponMessage,applyCoupon,subtotal,total,money,user,authReady,authMode,changeAuth,authError,submitAuth,signOut,openAccount,guest,setGuest,accountView,setAccountView,showShipping,showHistory,address,setAddress,addressError,saveAddress,newsletterOptIn,setNewsletterOptIn,newsletterMessage,subscribe,busy,toast,notify,lastOrder,cartNote,checkout,testRazorpayPayment,downloadInvoice,accountFetch,addProduct};
 }

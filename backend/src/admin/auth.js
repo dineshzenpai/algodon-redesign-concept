@@ -18,7 +18,12 @@ function sessionHash(token) {
 }
 
 export async function ensureInitialAdmin() {
-  const db = getDb();
+  let db;
+  try {
+    db = getDb();
+  } catch {
+    return;
+  }
   if (!db || !env.supabase.serviceRoleKey) return;
   try {
     const { count, error } = await db.from('admin_users').select('user_id', { count: 'exact', head: true });
@@ -152,11 +157,7 @@ export async function logoutAdmin(req, res) {
 }
 
 export async function requireAdmin(req, res, next) {
-  const cookieToken = req.cookies?.[COOKIE];
-  const authHeader = req.get('authorization') || '';
-  const bearerMatch = /^Bearer\s+(\S+)$/i.exec(authHeader);
-  const token = cookieToken || (bearerMatch ? bearerMatch[1] : null);
-
+  const token = req.cookies?.[COOKIE];
   if (!token) return res.status(401).json({ error: 'Sign in to continue.' });
   try {
     const { data: active, error: sessionError } = await getDb().rpc('admin_session_active', { p_token_hash: sessionHash(token) });

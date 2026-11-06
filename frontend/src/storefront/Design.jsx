@@ -47,8 +47,14 @@ export function CartDrawer({s}) {
     </div>
     <p id="couponMessage" className="cart-note" aria-live="polite" hidden={!s.couponMessage}>{s.couponMessage}</p>
     <div className="cart-subtotal" id="cartDiscountRow" hidden={!s.coupon}><span>Discount</span><span id="cartDiscount">{`− ${s.money(s.coupon?.discount || 0)}`}</span></div>
-    <button className="btn btn-solid" style={{"width": "100%", "justifyContent": "center"}} id="checkoutBtn" onClick={s.checkout} disabled={s.busy === "checkout"}>{s.busy === "checkout" ? "Saving order…" : "Checkout"}</button>
+    <button className="btn btn-solid" style={{"width": "100%", "justifyContent": "center", "display": "flex", "alignItems": "center", "gap": "8px"}} id="checkoutBtn" onClick={s.checkout} disabled={s.busy === "checkout"}>{s.busy === "checkout" ? "Opening Razorpay…" : `Pay with Razorpay · ${s.money(s.total)}`}</button>
     <p className="cart-note" id="cartNote">{s.cartNote}</p>
+    <div style={{"display": "flex", "alignItems": "center", "justifyContent": "center", "gap": "6px", "marginTop": "6px", "fontSize": "0.72rem", "color": "var(--ink-soft)"}}>
+      <span>🔒 Secured by Razorpay</span>
+      <button type="button" id="quickTestPayBtn" style={{"background": "none", "border": "none", "textDecoration": "underline", "color": "var(--accent)", "cursor": "pointer", "fontSize": "0.72rem", "marginLeft": "4px"}} onClick={() => s.testRazorpayPayment(100)} title="Test Razorpay Standard Checkout modal with ₹1">
+        (Test ₹1 modal)
+      </button>
+    </div>
     <button className="btn btn-ghost" id="downloadInvoiceBtn" style={{"width": "100%", "justifyContent": "center", "marginTop": "10px", "color": "var(--ink)", "borderColor": "var(--line-strong)"}} hidden={!s.lastOrder} onClick={() => s.downloadInvoice(s.lastOrder)}>Download Invoice (PDF)</button>
     <button className="btn btn-ghost" id="emailInvoiceBtn" style={{"width": "100%", "justifyContent": "center", "marginTop": "10px", "color": "var(--ink)", "borderColor": "var(--line-strong)"}} hidden>Email Invoice Details</button>
   </div>
