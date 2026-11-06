@@ -135,7 +135,7 @@ export function CartDrawer({s}) {
 }
 
 export function AccountDrawer({s}) {
-  const [emailOrPhone, setEmailOrPhone] = useState('');
+  const [emailInput, setEmailInput] = useState('');
   const [password, setPassword] = useState('');
 
   return (
@@ -213,12 +213,20 @@ export function AccountDrawer({s}) {
 
                 <div style={{ display: "flex", alignItems: "center", textAlign: "center", color: "var(--ink-soft)", fontSize: "0.75rem", marginBottom: "16px" }}>
                   <hr style={{ flex: "1", border: "none", borderTop: "1px solid var(--line)" }} />
-                  <span style={{ padding: "0 10px" }}>or continue with email / phone</span>
+                  <span style={{ padding: "0 10px" }}>or sign in with email</span>
                   <hr style={{ flex: "1", border: "none", borderTop: "1px solid var(--line)" }} />
                 </div>
 
                 {/* Login Method Toggle */}
                 <div style={{ display: "flex", gap: "6px", marginBottom: "16px", background: "var(--card)", padding: "4px", borderRadius: "6px" }}>
+                  <button
+                    type="button"
+                    className={`btn ${s.loginMethod === 'otp' ? 'btn-solid' : 'btn-ghost'}`}
+                    style={{ flex: 1, fontSize: "0.78rem", padding: "8px", border: "none", justifyContent: "center" }}
+                    onClick={() => { s.setLoginMethod('otp'); s.setAuthError(''); }}
+                  >
+                    Email OTP
+                  </button>
                   <button
                     type="button"
                     className={`btn ${s.loginMethod === 'password' ? 'btn-solid' : 'btn-ghost'}`}
@@ -227,29 +235,21 @@ export function AccountDrawer({s}) {
                   >
                     Password
                   </button>
-                  <button
-                    type="button"
-                    className={`btn ${s.loginMethod === 'otp' ? 'btn-solid' : 'btn-ghost'}`}
-                    style={{ flex: 1, fontSize: "0.78rem", padding: "8px", border: "none", justifyContent: "center" }}
-                    onClick={() => { s.setLoginMethod('otp'); s.setAuthError(''); }}
-                  >
-                    Instant OTP
-                  </button>
                 </div>
 
                 {/* Password Mode Form */}
                 {s.loginMethod === 'password' && (
                   <form className="checkout-form" id="signInForm" style={{ border: "none", padding: "0" }} onSubmit={s.submitAuth}>
                     <div className="field">
-                      <label htmlFor="signInEmail">Email or Phone Number</label>
+                      <label htmlFor="signInEmail">Email Address</label>
                       <input
-                        type="text"
+                        type="email"
                         id="signInEmail"
                         name="email"
                         autoComplete="username email"
-                        placeholder="name@example.com or phone"
-                        value={emailOrPhone}
-                        onChange={e => setEmailOrPhone(e.target.value)}
+                        placeholder="name@example.com"
+                        value={emailInput}
+                        onChange={e => setEmailInput(e.target.value)}
                         required
                       />
                     </div>
@@ -282,12 +282,13 @@ export function AccountDrawer({s}) {
                 {s.loginMethod === 'otp' && (
                   <div className="checkout-form" style={{ border: "none", padding: "0" }}>
                     <div className="field">
-                      <label htmlFor="otpIdentifier">Email or Phone Number</label>
+                      <label htmlFor="otpIdentifier">Email Address</label>
                       <div style={{ display: "flex", gap: "8px" }}>
                         <input
-                          type="text"
+                          type="email"
                           id="otpIdentifier"
-                          placeholder="e.g. 9876543210 or name@example.com"
+                          autoComplete="email"
+                          placeholder="name@example.com"
                           value={s.otpIdentifier}
                           onChange={e => s.setOtpIdentifier(e.target.value)}
                           disabled={s.busy === 'otp_send'}
@@ -300,7 +301,7 @@ export function AccountDrawer({s}) {
                           disabled={s.busy === 'otp_send' || !s.otpIdentifier.trim()}
                           style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}
                         >
-                          {s.busy === 'otp_send' ? 'Sending…' : s.otpSent ? 'Resend' : 'Send OTP'}
+                          {s.busy === 'otp_send' ? 'Sending…' : s.otpSent ? 'Resend' : 'Send Code'}
                         </button>
                       </div>
                     </div>
@@ -344,9 +345,79 @@ export function AccountDrawer({s}) {
                   </div>
                 )}
 
-                <div style={{ textAlign: "center", marginTop: "18px", fontSize: "0.78rem", color: "var(--ink-soft)" }}>
-                  Instant zero-friction sign-in · Patrons are authenticated securely.
+                <div style={{ textAlign: "center", marginTop: "20px", borderTop: "1px solid var(--line)", paddingTop: "14px" }}>
+                  <button
+                    type="button"
+                    style={{ background: "none", border: "none", color: "var(--accent)", fontSize: "0.84rem", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
+                    onClick={() => { s.setGuest(true); s.setAccountView('shipping'); }}
+                  >
+                    Checking out? Enter shipping address & contact phone →
+                  </button>
                 </div>
+              </div>
+            )}
+
+            {/* 1B. GUEST SHIPPING & CONTACT NUMBER VIEW */}
+            {!s.user && s.guest && (
+              <div className="account-body" id="guestShippingView" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+                <div style={{ marginBottom: "18px" }}>
+                  <span className="eyebrow" style={{ color: "var(--accent)" }}>Checkout & Shipping</span>
+                  <h2 style={{ margin: "4px 0 0", fontFamily: "'Fraunces', serif", fontSize: "1.7rem", fontWeight: "300" }}>
+                    Delivery Address & Phone
+                  </h2>
+                  <p style={{ margin: "6px 0 0", fontSize: "0.82rem", color: "var(--ink-soft)" }}>
+                    Please enter your delivery destination and contact phone number for courier dispatch.
+                  </p>
+                </div>
+
+                <form className="checkout-form" id="guestCheckoutForm" style={{ border: "none", padding: "0" }} onSubmit={async (e) => {
+                  e.preventDefault();
+                  await s.saveAddress(e);
+                  s.open('cart');
+                }}>
+                  <div className="field">
+                    <label htmlFor="guestShipName">Full Name</label>
+                    <input type="text" id="guestShipName" name="name" autoComplete="name" required value={s.address.name || ""} onChange={event => s.setAddress(previous => ({ ...previous, name: event.target.value }))} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="guestShipEmail">Email Address (for invoice & receipt)</label>
+                    <input type="email" id="guestShipEmail" name="email" autoComplete="email" required value={s.address.email || ""} onChange={event => s.setAddress(previous => ({ ...previous, email: event.target.value }))} />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="guestShipPhone">Phone Number (for courier delivery & SMS tracking)</label>
+                    <input type="tel" id="guestShipPhone" name="phone" autoComplete="tel" placeholder="e.g. 9876543210" required value={s.address.phone || ""} onChange={event => s.setAddress(previous => ({ ...previous, phone: event.target.value }))} />
+                    <span style={{ fontSize: "0.72rem", color: "var(--ink-soft)", marginTop: "4px", display: "block" }}>
+                      Required for delivery coordination and dispatch SMS updates.
+                    </span>
+                  </div>
+                  <div className="form-row form-row-3">
+                    <div className="field">
+                      <label htmlFor="guestShipCity">City</label>
+                      <input type="text" id="guestShipCity" name="city" required value={s.address.city || ""} onChange={event => s.setAddress(previous => ({ ...previous, city: event.target.value }))} />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="guestShipState">State</label>
+                      <input type="text" id="guestShipState" name="state" required value={s.address.state || ""} onChange={event => s.setAddress(previous => ({ ...previous, state: event.target.value }))} />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="guestShipPin">PIN Code</label>
+                      <input type="text" id="guestShipPin" name="pin" required value={s.address.pin || ""} onChange={event => s.setAddress(previous => ({ ...previous, pin: event.target.value }))} />
+                    </div>
+                  </div>
+                  <div className="field">
+                    <label htmlFor="guestShipAddress1">House no, Building, Street</label>
+                    <input type="text" id="guestShipAddress1" name="address1" required value={s.address.address1 || ""} onChange={event => s.setAddress(previous => ({ ...previous, address1: event.target.value }))} />
+                  </div>
+                  <p className="field-error">{s.addressError}</p>
+                  <button className="btn btn-solid" style={{ marginTop: "12px", width: "100%", justifyContent: "center" }} type="submit" disabled={s.busy === "address"}>
+                    {s.busy === "address" ? "Saving…" : "Save & Proceed to Checkout →"}
+                  </button>
+                  <div style={{ textAlign: "center", marginTop: "14px" }}>
+                    <button type="button" style={{ background: "none", border: "none", color: "var(--ink-soft)", fontSize: "0.8rem", cursor: "pointer", textDecoration: "underline" }} onClick={() => s.setGuest(false)}>
+                      ← Back to Email Sign In
+                    </button>
+                  </div>
+                </form>
               </div>
             )}
 
@@ -462,8 +533,11 @@ export function AccountDrawer({s}) {
                           <input type="email" id="shipEmail" name="email" autoComplete="email" required value={s.address.email || ""} onChange={event => s.setAddress(previous => ({ ...previous, email: event.target.value }))} />
                         </div>
                         <div className="field">
-                          <label htmlFor="shipPhone">Phone number</label>
-                          <input type="tel" id="shipPhone" name="phone" autoComplete="tel" required value={s.address.phone || ""} onChange={event => s.setAddress(previous => ({ ...previous, phone: event.target.value }))} />
+                          <label htmlFor="shipPhone">Phone number (for courier delivery & SMS tracking)</label>
+                          <input type="tel" id="shipPhone" name="phone" autoComplete="tel" placeholder="e.g. 9876543210" required value={s.address.phone || ""} onChange={event => s.setAddress(previous => ({ ...previous, phone: event.target.value }))} />
+                          <span style={{ fontSize: "0.72rem", color: "var(--ink-soft)", marginTop: "4px", display: "block" }}>
+                            Required for delivery coordination and dispatch SMS updates.
+                          </span>
                         </div>
                         <div className="form-row form-row-3">
                           <div className="field">

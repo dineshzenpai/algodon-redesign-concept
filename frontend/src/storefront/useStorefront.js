@@ -261,9 +261,13 @@ export function useStorefront() {
   }
 
   async function sendOtp(targetIdentifier) {
-    const target = String(targetIdentifier || otpIdentifier).trim();
+    const target = String(targetIdentifier || otpIdentifier).trim().toLowerCase();
     if (!target) {
-      setAuthError('Please enter your email address or phone number.');
+      setAuthError('Please enter your email address.');
+      return;
+    }
+    if (!target.includes('@')) {
+      setAuthError('Please enter a valid email address.');
       return;
     }
     setBusy('otp_send');
@@ -275,12 +279,9 @@ export function useStorefront() {
       });
       setOtpSent(true);
       setOtpIdentifier(target);
-      setOtpCode(''); // Keep strictly blank: customer types the code received via SMS
-      const isEmail = target.includes('@');
-      const cleanDigits = target.replace(/\D/g, '');
-      const formatted = isEmail ? target : `+91 ${cleanDigits.slice(-10)}`;
-      notify(`Verification code sent to ${formatted}`);
-      setOtpNotice(`6-digit verification code sent via SMS to ${formatted}. Please enter the code received on your phone.`);
+      setOtpCode(''); // Keep strictly blank: customer types the code received via email
+      notify(`Verification code sent to ${target}`);
+      setOtpNotice(`6-digit verification code sent to ${target}. Please check your email inbox.`);
     } catch(err) {
       setAuthError(err.message || 'Failed to send verification code. Please try again.');
     } finally {
@@ -290,10 +291,10 @@ export function useStorefront() {
 
   async function verifyOtp(e) {
     if (e && e.preventDefault) e.preventDefault();
-    const target = otpIdentifier.trim();
+    const target = otpIdentifier.trim().toLowerCase();
     const code = otpCode.trim();
     if (!target || !code) {
-      setAuthError('Please enter both your phone/email and the 6-digit code.');
+      setAuthError('Please enter both your email address and the 6-digit code.');
       return;
     }
     setBusy('otp_verify');
@@ -317,7 +318,7 @@ export function useStorefront() {
         if (res.isAdmin) {
           notify(`Welcome! Store Admin access unlocked (${res.role?.replace('_', ' ') || 'admin'}).`);
         } else {
-          notify(`Welcome, ${loggedUser.full_name?.split(' ')[0] || loggedUser.email || loggedUser.phone || 'Customer'}!`);
+          notify(`Welcome, ${loggedUser.full_name?.split(' ')[0] || loggedUser.email || 'Customer'}!`);
         }
       }
     } catch(err) {
