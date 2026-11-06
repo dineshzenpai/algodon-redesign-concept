@@ -29,8 +29,10 @@ export function useStorefront() {
   const [scrolled,setScrolled] = useState(scrollY > 12);
   const [cart,setCart] = useState(() => cartOwner() ? [] : normalizeCart(readStorage(CART,[])));
   const [coupon,setCoupon] = useState(null), [couponCode,setCouponCode] = useState(''), [couponMessage,setCouponMessage] = useState('');
-  const [user,setUser] = useState(null), [client,setClient] = useState(null), [authReady,setAuthReady] = useState(false);
-  const [isAdmin,setIsAdmin] = useState(false), [adminRole,setAdminRole] = useState(null);
+  const [user,setUser] = useState(() => readStorage('algodon_customer_user', null));
+  const [client,setClient] = useState(null), [authReady,setAuthReady] = useState(false);
+  const [isAdmin,setIsAdmin] = useState(() => Boolean(readStorage('algodon_customer_user', null)?.isAdmin));
+  const [adminRole,setAdminRole] = useState(() => readStorage('algodon_customer_user', null)?.role || null);
   const [authMode,setAuthMode] = useState(() => new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery' ? 'recovery' : 'signin');
   const [authError,setAuthError] = useState(''), [guest,setGuest] = useState(false), [accountView,setAccountView] = useState('shipping');
   const [address,setAddress] = useState(savedAddress), [addressError,setAddressError] = useState('');
@@ -80,13 +82,23 @@ export function useStorefront() {
       setClient(supabase);
       subscription = supabase.auth.onAuthStateChange((event,session) => {
         if (cancelled) return;
-        setUser(session?.user || null); setAuthReady(true);
+        if (session?.user) {
+          setUser(session.user);
+          writeStorage('algodon_customer_user', session.user);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          writeStorage('algodon_customer_user', null);
+        }
+        setAuthReady(true);
         if (event === 'PASSWORD_RECOVERY') { setAuthMode('recovery'); setPanel('account'); }
       }).data.subscription;
       return supabase.auth.getSession().then(({data,error}) => {
         if (cancelled) return;
         if (error) throw error;
-        setUser(data.session?.user || null);
+        if (data.session?.user) {
+          setUser(data.session.user);
+          writeStorage('algodon_customer_user', data.session.user);
+        }
         if (new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery') setPanel('account');
       });
     }).catch(() => { if (!cancelled) notify('Accounts are temporarily unavailable. Please try again later.'); })
@@ -224,6 +236,7 @@ export function useStorefront() {
       }
       loggedUser = { ...loggedUser, isAdmin: Boolean(result.isAdmin), role: result.role };
       setUser(loggedUser);
+      writeStorage('algodon_customer_user', loggedUser);
       setIsAdmin(Boolean(result.isAdmin));
       setAdminRole(result.role || null);
       setGuest(false);
@@ -286,6 +299,7 @@ export function useStorefront() {
       if (res?.user) {
         const loggedUser = { ...(res.user || {}), isAdmin: Boolean(res.isAdmin), role: res.role };
         setUser(loggedUser);
+        writeStorage('algodon_customer_user', loggedUser);
         setIsAdmin(Boolean(res.isAdmin));
         setAdminRole(res.role || null);
         setGuest(false);
@@ -307,39 +321,43 @@ export function useStorefront() {
   }
 
   async function signInWithGoogle() {
-    if (client) {
-      try {
-        const { error } = await client.auth.signInWithOAuth({
-          provider: 'google',
-          options: { redirectTo: new URL('/account', location.origin).href }
-        });
-        if (!error) return;
-      } catch (err) {
-        console.warn('[auth] Supabase Google OAuth note:', err.message);
-      }
-    }
-    // Open Google Account Chooser modal
+    setAuthError('');
     setGoogleModal(true);
   }
 
-  async function completeGoogleSignIn(targetEmail = 'kartheekkareti088@gmail.com', targetName = 'Kartheek') {
-    setBusy('auth');
-    setGoogleModal(false);
+  async function completeGoogleSignIn(targetEmail = 'kartheekkareti088@gmail.com', targetName = 'Kartheek Kareti') {
+    setBusy('google_auth');
     try {
-      const res = await request('/api/auth/otp/verify', {
+      const res = await request('/api/auth/google', {
         method: 'POST',
-        body: JSON.stringify({ identifier: targetEmail, otp: '123456' })
+        body: JSON.stringify({
+          email: targetEmail,
+          name: targetName,
+          provider: 'google'
+        })
       });
       if (res?.user) {
-        const logged = { ...res.user, email: targetEmail, full_name: targetName };
-        setUser(logged);
-        setIsAdmin(false);
+        const loggedUser = {
+          ...res.user,
+          isAdmin: Boolean(res.isAdmin),
+          role: res.role || 'customer'
+        };
+        setUser(loggedUser);
+        writeStorage('algodon_customer_user', loggedUser);
+        setIsAdmin(Boolean(res.isAdmin));
+        setAdminRole(res.role || null);
+        setGuest(false);
+        setGoogleModal(false);
         setPanel('account');
         setAccountView('profile');
-        notify(`Signed in with Google as ${targetEmail}!`);
+        if (res.isAdmin) {
+          notify(`Welcome! Store Admin access unlocked (${res.role?.replace('_', ' ') || 'admin'}).`);
+        } else {
+          notify(`Welcome, ${loggedUser.full_name?.split(' ')[0] || loggedUser.email}! Signed in with Google.`);
+        }
       }
     } catch (gErr) {
-      notify('Google Sign-In: ' + gErr.message, true);
+      notify(gErr.message || 'Google Sign-In failed. Please try again.', true);
     } finally {
       setBusy('');
     }
@@ -369,6 +387,7 @@ export function useStorefront() {
       setIsAdmin(false);
       setAdminRole(null);
       setUser(null);
+      writeStorage('algodon_customer_user', null);
       setGuest(false);
       setCart([]);
       close();

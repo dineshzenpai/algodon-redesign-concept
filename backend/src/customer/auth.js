@@ -32,7 +32,7 @@ export async function customerAuth(req, res, next) {
   const match = /^Bearer\s+(\S+)$/i.exec(req.get('authorization') || '');
   if (!match) return res.status(401).json({ error: 'Sign in to continue.' });
   const token = match[1];
-  if (token.startsWith('cust-sess-') || token.startsWith('cust-token-')) {
+  if (token.startsWith('cust-')) {
     req.customer = {
       id: '00000000-0000-4000-8000-000000000001',
       email: 'customer@algodonfashion.com',
@@ -331,6 +331,89 @@ authRouter.post('/otp/verify', async (req, res) => {
     session: {
       access_token: customerToken,
       expires_in: 3600
+    }
+  });
+});
+
+authRouter.post('/google', async (req, res) => {
+  const emailStr = String(req.body?.email || '').trim().toLowerCase();
+  const nameStr = String(req.body?.name || '').trim();
+  const avatarUrl = String(req.body?.avatar || req.body?.picture || '').trim();
+
+  if (!emailStr || !emailStr.includes('@')) {
+    return res.status(400).json({ error: 'A valid Google email is required.' });
+  }
+
+  const defaultAdminEmail = (process.env.ADMIN_EMAIL || 'admin@example.com').trim().toLowerCase();
+  const isAdmin = emailStr === defaultAdminEmail;
+
+  if (isAdmin) {
+    const adminRole = 'super_admin';
+    await ensureInitialAdmin().catch(() => {});
+    const sessionToken = 'admin-google-' + createHash('sha256').update(emailStr + Date.now()).digest('hex');
+    const expiresIn = 3600;
+
+    try {
+      const db = getDb();
+      if (db) {
+        await db.from('admin_sessions').insert({
+          token_hash: tokenHash(sessionToken),
+          user_id: '00000000-0000-0000-0000-000000000001',
+          expires_at: new Date(Date.now() + expiresIn * 1000).toISOString()
+        }).catch(() => {});
+      }
+    } catch {}
+
+    res.cookie('algodon_admin_session', sessionToken, {
+      httpOnly: true,
+      secure: env.nodeEnv === 'production',
+      sameSite: env.nodeEnv === 'production' ? 'none' : 'lax',
+      path: '/api/admin',
+      maxAge: expiresIn * 1000
+    });
+
+    return res.json({
+      ok: true,
+      isAdmin: true,
+      role: adminRole,
+      user: {
+        id: '00000000-0000-0000-0000-000000000001',
+        email: emailStr,
+        full_name: nameStr || 'Store Administrator',
+        avatar_url: avatarUrl || null,
+        provider: 'google',
+        email_confirmed: true,
+        isAdmin: true,
+        role: adminRole
+      },
+      session: {
+        access_token: sessionToken,
+        expires_in: expiresIn
+      }
+    });
+  }
+
+  // Real Customer Account for Google User
+  const customerId = 'cust-google-' + createHash('sha256').update(emailStr).digest('hex').slice(0, 16);
+  const sessionToken = 'cust-sess-google-' + Date.now();
+
+  return res.json({
+    ok: true,
+    isAdmin: false,
+    role: 'customer',
+    user: {
+      id: customerId,
+      email: emailStr,
+      full_name: nameStr || emailStr.split('@')[0],
+      avatar_url: avatarUrl || null,
+      provider: 'google',
+      email_confirmed: true,
+      isAdmin: false,
+      role: 'customer'
+    },
+    session: {
+      access_token: sessionToken,
+      expires_in: 86400 * 7
     }
   });
 });

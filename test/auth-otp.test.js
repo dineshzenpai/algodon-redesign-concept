@@ -91,6 +91,43 @@ describe('Auth OTP and Storefront Coupons Verification', () => {
     assert.ok(cookieHeader && cookieHeader.includes('algodon_admin_session'));
   });
 
+  it('POST /api/auth/google establishes customer session for Google user', async () => {
+    const res = await fetch(`${baseUrl}/api/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'kartheekkareti088@gmail.com',
+        name: 'Kartheek Kareti'
+      })
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.ok, true);
+    assert.equal(data.user.email, 'kartheekkareti088@gmail.com');
+    assert.equal(data.user.full_name, 'Kartheek Kareti');
+    assert.equal(data.user.provider, 'google');
+    assert.equal(data.isAdmin, false);
+    assert.ok(data.session?.access_token);
+  });
+
+  it('POST /api/auth/google establishes admin session for admin email', async () => {
+    const res = await fetch(`${baseUrl}/api/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: 'admin@example.com',
+        name: 'Store Administrator'
+      })
+    });
+    assert.equal(res.status, 200);
+    const data = await res.json();
+    assert.equal(data.ok, true);
+    assert.equal(data.isAdmin, true);
+    assert.equal(data.role, 'super_admin');
+    const cookieHeader = res.headers.get('set-cookie');
+    assert.ok(cookieHeader && cookieHeader.includes('algodon_admin_session'));
+  });
+
   it('POST /api/coupons/validate verifies promotional discount coupon WELCOME10', async () => {
     const res = await fetch(`${baseUrl}/api/coupons/validate`, {
       method: 'POST',
