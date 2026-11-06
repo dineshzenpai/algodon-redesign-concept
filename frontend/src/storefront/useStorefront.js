@@ -336,6 +336,19 @@ export function useStorefront() {
           provider: 'google'
         })
       });
+
+      if (client) {
+        try {
+          await client.auth.signInWithOtp({
+            email: targetEmail,
+            options: {
+              data: { full_name: targetName, provider: 'google' },
+              shouldCreateUser: true
+            }
+          }).catch(err => console.log('[auth] Supabase background OTP note:', err.message));
+        } catch {}
+      }
+
       if (res?.user) {
         const loggedUser = {
           ...res.user,
