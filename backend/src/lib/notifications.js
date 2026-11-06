@@ -292,17 +292,42 @@ export async function sendAuthOtpSms({ identifier, code }) {
   if (isEmail) {
     try {
       const mailer = createMailer();
-      const subject = `Your Algodon Verification Code: ${code}`;
-      const text = `Your Algodon Organic verification code is ${code}. This code is valid for 10 minutes.\n\nIf you did not request this code, please ignore this email.`;
+      const subject = `${code} is your Algodon Organic login code`;
+      const text = `Hello,\n\nYour 6-digit verification code to sign in to Algodon Organic is: ${code}\n\nThis code is valid for 10 minutes.\n\nIf you did not request this login code, you can safely ignore this email.\n\nAlgodon Organic — 100% Organic Cotton Block Prints`;
+      const htmlBody = `
+        <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 520px; margin: 0 auto; background: #faf8f5; border: 1px solid #e5ddd3; border-radius: 8px; overflow: hidden; color: #2d241e;">
+          <div style="background: #211711; color: #f5f0eb; padding: 24px 20px; text-align: center;">
+            <h1 style="margin: 0; font-size: 24px; letter-spacing: 3px; font-weight: 400;">ALGODON <span style="font-size: 13px; opacity: 0.7; letter-spacing: 1px;">ORGANIC</span></h1>
+            <p style="margin: 6px 0 0; font-size: 12px; color: #c45c3c; font-weight: 600; text-transform: uppercase;">Customer Sign-In Verification</p>
+          </div>
+          <div style="padding: 30px 24px; text-align: center;">
+            <p style="font-size: 15px; margin: 0 0 16px; color: #5a4b41;">Enter this one-time code to sign in to your Algodon account:</p>
+            <div style="background: #ffffff; border: 2px dashed #c45c3c; border-radius: 8px; padding: 16px 28px; margin: 20px auto; display: inline-block;">
+              <span style="font-family: 'SF Pro Mono', Monaco, Consolas, monospace; font-size: 32px; font-weight: 700; letter-spacing: 8px; color: #211711; margin-left: 8px;">${code}</span>
+            </div>
+            <p style="font-size: 13px; color: #7a685e; margin: 16px 0 0;">Valid for <strong>10 minutes</strong>. For your security, never share this code.</p>
+            <p style="font-size: 12px; color: #9c897d; margin: 12px 0 0;">If you did not request this code, no action is required.</p>
+          </div>
+          <div style="background: #ece3d8; padding: 14px 20px; text-align: center; font-size: 11px; color: #7a685e;">
+            Algodon Organic Textiles Pvt Ltd · Pure Artisan Block Prints<br>
+            Jaipur, Rajasthan
+          </div>
+        </div>
+      `;
+
       if (mailer) {
+        const fromAddress = process.env.SMTP_FROM || (process.env.SMTP_USER ? `"Algodon Organic" <${process.env.SMTP_USER}>` : '"Algodon Organic" <concierge@algodonfashion.com>');
         await mailer.sendMail({
-          from: process.env.SMTP_FROM || '"Algodon Organic" <concierge@algodonfashion.com>',
+          from: fromAddress,
           to: identifier,
           subject,
-          text
+          text,
+          html: htmlBody
         });
+        console.log(`[auth/email] Sent verification OTP email via SMTP to ${identifier}`);
+      } else {
+        console.log(`[auth/email] Sent verification OTP email to ${identifier}`);
       }
-      console.log(`[auth/email] Sent verification OTP email to ${identifier}`);
     } catch (err) {
       console.warn('[auth/email] Email dispatch error:', err.message);
     }

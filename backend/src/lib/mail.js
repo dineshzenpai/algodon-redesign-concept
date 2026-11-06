@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 
-// Supports standard SMTP (Gmail, Resend, Brevo) or Resend API key directly.
+// Supports standard SMTP (Gmail, Brevo, AWS SES, custom SMTP) or Resend API key directly.
 export function createMailer() {
   if (process.env.RESEND_API_KEY) {
     return {
@@ -16,7 +16,7 @@ export function createMailer() {
             to: Array.isArray(to) ? to : [to],
             subject,
             text,
-            html: html || `<p>${text.replace(/\n/g, '<br>')}</p>`
+            html: html || `<p>${String(text || '').replace(/\n/g, '<br>')}</p>`
           })
         });
         if (!resp.ok) {
@@ -28,15 +28,32 @@ export function createMailer() {
     };
   }
 
-  if (!process.env.SMTP_HOST) return null;
-  const authenticated = Boolean(process.env.SMTP_USER && process.env.SMTP_PASSWORD);
+  const user = (process.env.SMTP_USER || '').trim();
+  const pass = (process.env.SMTP_PASSWORD || process.env.SMTP_PASS || '').trim();
+  const host = (process.env.SMTP_HOST || (user.toLowerCase().endsWith('@gmail.com') ? 'smtp.gmail.com' : '')).trim();
+
+  if (!host && !process.env.SMTP_SERVICE) return null;
+
+  const authenticated = Boolean(user && pass);
   if (!authenticated && process.env.SMTP_ALLOW_UNAUTHENTICATED !== 'true') return null;
+
+  const isGmail = host === 'smtp.gmail.com' || process.env.SMTP_SERVICE === 'gmail';
+  const port = Number(process.env.SMTP_PORT || (isGmail ? 465 : (process.env.SMTP_SECURE === 'true' ? 465 : 587)));
+  const secure = process.env.SMTP_SECURE === 'true' || port === 465;
+
+  if (isGmail && !process.env.SMTP_PORT) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: { user, pass }
+    });
+  }
+
   return nodemailer.createTransport({
-    host: process.env.SMTP_HOST,
-    port: Number(process.env.SMTP_PORT || (process.env.SMTP_SECURE === 'true' ? 465 : 587)),
-    secure: process.env.SMTP_SECURE === 'true' || Number(process.env.SMTP_PORT) === 465,
+    host,
+    port,
+    secure,
     connectionTimeout: 10000,
     socketTimeout: 10000,
-    ...(authenticated ? { auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASSWORD } } : {})
+    ...(authenticated ? { auth: { user, pass } } : {})
   });
 }
