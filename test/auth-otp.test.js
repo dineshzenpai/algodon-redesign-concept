@@ -96,15 +96,15 @@ describe('Auth OTP and Storefront Coupons Verification', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        email: 'kartheekkareti088@gmail.com',
-        name: 'Kartheek Kareti'
+        email: 'customer.test@example.com',
+        name: 'Test Customer'
       })
     });
     assert.equal(res.status, 200);
     const data = await res.json();
     assert.equal(data.ok, true);
-    assert.equal(data.user.email, 'kartheekkareti088@gmail.com');
-    assert.equal(data.user.full_name, 'Kartheek Kareti');
+    assert.equal(data.user.email, 'customer.test@example.com');
+    assert.equal(data.user.full_name, 'Test Customer');
     assert.equal(data.user.provider, 'google');
     assert.equal(data.isAdmin, false);
     assert.ok(data.session?.access_token);
