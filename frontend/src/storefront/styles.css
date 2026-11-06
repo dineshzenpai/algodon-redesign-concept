@@ -755,14 +755,14 @@
 @media (max-width: 600px) { .account-menu { position: fixed; top: 64px; right: 12px; } }
 .auth-toast { position: fixed; z-index: 100; right: 20px; bottom: 20px; max-width: min(420px, calc(100vw - 40px)); padding: 14px 18px; background: var(--ink); color: var(--surface); box-shadow: 0 8px 26px #241d1433; }
 .modal-image-side {
-  flex: 1;
+  flex: 1.1;
   display: none;
   background: url('/img/hero.jpg') center/cover no-repeat;
-  min-height: 500px;
+  min-height: 520px;
 }
 @media (min-width: 768px) {
   .modal-image-side {
-    display: block;
+    display: flex !important;
   }
 }
 

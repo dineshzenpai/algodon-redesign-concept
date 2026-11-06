@@ -137,6 +137,9 @@ export function CartDrawer({s}) {
 export function AccountDrawer({s}) {
   const [emailInput, setEmailInput] = useState('');
   const [password, setPassword] = useState('');
+  const [nameInput, setNameInput] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   return (
     <>
@@ -149,206 +152,390 @@ export function AccountDrawer({s}) {
         hidden={s.panel !== "account"}
         onClick={event => { if (event.target === event.currentTarget) s.close(); }}
       >
-        <div className="modal" style={{ padding: "0", maxWidth: "850px", width: "92%", maxHeight: "90vh", display: "flex", flexDirection: "row", overflow: "hidden", background: "var(--surface)", position: "relative" }}>
-          <button className="icon-btn" id="accountClose" aria-label="Close account panel" style={{ position: "absolute", top: "16px", right: "20px", zIndex: "10" }} onClick={s.close}>Close ✕</button>
-          <div className="modal-image-side"></div>
+        <div
+          className="modal"
+          style={{
+            padding: "0",
+            maxWidth: "920px",
+            width: "94%",
+            maxHeight: "92vh",
+            display: "flex",
+            flexDirection: "row",
+            overflow: "hidden",
+            background: "#1e1a17",
+            borderRadius: "22px",
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            boxShadow: "0 24px 60px rgba(0, 0, 0, 0.7)",
+            position: "relative"
+          }}
+        >
+          {/* Close button in top-right */}
+          <button
+            type="button"
+            id="accountClose"
+            aria-label="Close account panel"
+            style={{
+              position: "absolute",
+              top: "16px",
+              right: "18px",
+              width: "32px",
+              height: "32px",
+              borderRadius: "50%",
+              background: "rgba(255, 255, 255, 0.1)",
+              border: "none",
+              color: "#e8ded2",
+              display: "grid",
+              placeItems: "center",
+              cursor: "pointer",
+              zIndex: "10",
+              fontSize: "0.85rem",
+              transition: "background 0.2s"
+            }}
+            onClick={s.close}
+          >
+            ✕
+          </button>
 
-          <div className="account-form-pane" style={{ flex: 1, padding: "32px 36px", overflowY: "auto" }}>
+          {/* Left Side: Photo with 100% Organic Cotton badge & 3 features at bottom */}
+          <div
+            className="modal-image-side"
+            style={{
+              flex: 1.1,
+              minHeight: "560px",
+              background: "url('/img/hero.jpg') center/cover no-repeat",
+              position: "relative",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "flex-end",
+              padding: "36px 32px",
+              boxSizing: "border-box"
+            }}
+          >
+            {/* Dark gradient overlay */}
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                background: "linear-gradient(180deg, rgba(18, 14, 11, 0.05) 0%, rgba(18, 14, 11, 0.35) 45%, rgba(18, 14, 11, 0.94) 100%)",
+                pointerEvents: "none"
+              }}
+            />
+
+            <div style={{ position: "relative", zIndex: 2 }}>
+              {/* Badge: 100% Organic Cotton */}
+              <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "0.82rem", color: "#e8ded2", marginBottom: "8px", fontWeight: 500 }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+                  <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+                </svg>
+                <span>100% Organic Cotton</span>
+              </div>
+
+              {/* Title: Natural Comfort, Everyday Style */}
+              <h3 style={{ margin: "0 0 12px 0", fontFamily: "'Fraunces', serif", fontSize: "1.95rem", lineHeight: 1.2, fontWeight: 300, color: "#ffffff", letterSpacing: "-0.01em" }}>
+                Natural Comfort,<br />Everyday Style
+              </h3>
+
+              {/* Tan accent line */}
+              <div style={{ width: "42px", height: "2px", background: "#c5a880", marginBottom: "22px" }} />
+
+              {/* 3 feature columns at bottom */}
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px", borderTop: "1px solid rgba(255, 255, 255, 0.12)", paddingTop: "18px" }}>
+                {/* 1. Organic Materials */}
+                <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+                  <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "rgba(255, 255, 255, 0.08)", display: "grid", placeItems: "center", color: "#c5a880" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/>
+                      <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>
+                    </svg>
+                  </div>
+                  <span style={{ fontSize: "0.72rem", color: "#ded6c9", lineHeight: 1.25, fontWeight: 500 }}>
+                    Organic<br />Materials
+                  </span>
+                </div>
+
+                {/* 2. Skin Friendly */}
+                <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+                  <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "rgba(255, 255, 255, 0.08)", display: "grid", placeItems: "center", color: "#c5a880" }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>
+                    </svg>
+                  </div>
+                  <span style={{ fontSize: "0.72rem", color: "#ded6c9", lineHeight: 1.25, fontWeight: 500 }}>
+                    Skin<br />Friendly
+                  </span>
+                </div>
+
+                {/* 3. Lasting Durability */}
+                <div style={{ textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+                  <div style={{ width: "32px", height: "32px", borderRadius: "50%", background: "rgba(255, 255, 255, 0.08)", display: "grid", placeItems: "center", color: "#c5a880" }}>
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 12c-2-2.67-4-4-6-4a4 4 0 1 0 0 8c2 0 4-1.33 6-4Zm0 0c2 2.67 4 4 6 4a4 4 0 1 0 0-8c-2 0-4 1.33-6 4Z"/>
+                    </svg>
+                  </div>
+                  <span style={{ fontSize: "0.72rem", color: "#ded6c9", lineHeight: 1.25, fontWeight: 500 }}>
+                    Lasting<br />Durability
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Side: Dark Luxury Form Pane */}
+          <div
+            className="account-form-pane"
+            style={{
+              flex: 1,
+              padding: "40px 38px",
+              background: "#1e1a17",
+              color: "#f5f0eb",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              overflowY: "auto"
+            }}
+          >
             {/* 1. SIGNED OUT VIEW */}
-            {!s.user && (
-              <div className="account-body" id="accountSignedOut" style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%" }}>
-                <div style={{ textAlign: "center", marginBottom: "20px" }}>
-                  <h2 id="authTitle" style={{ margin: "0", fontFamily: "'Fraunces', serif", fontSize: "1.9rem", fontWeight: "300" }}>
-                    Sign In
+            {!s.user && !s.guest && (
+              <div className="account-body" id="accountSignedOut" style={{ display: "flex", flexDirection: "column", justifyContent: "center", height: "100%", padding: 0 }}>
+                <div style={{ marginBottom: "22px" }}>
+                  <h2 id="authTitle" style={{ margin: "0 0 6px 0", fontFamily: "'Fraunces', serif", fontSize: "2rem", fontWeight: "300", color: "#ffffff", letterSpacing: "-0.01em" }}>
+                    {s.authMode === "signup" ? "Create Account" : s.authMode === "reset" ? "Reset Password" : "Sign In"}
                   </h2>
-                  <p style={{ margin: "6px 0 0", fontSize: "0.82rem", color: "var(--ink-soft)" }}>
-                    Access your profile, orders, and shipping address.
+                  <p style={{ margin: "0", fontSize: "0.85rem", color: "#a0978d", lineHeight: 1.4 }}>
+                    {s.authMode === "reset"
+                      ? "Enter your email to receive recovery instructions."
+                      : "Access your profile, orders, and shipping address."}
                   </p>
                 </div>
 
-                {/* Google Sign In - Instant Connection */}
+                {/* Continue with Google button */}
                 <button
                   type="button"
                   id="googleSignInBtn"
-                  className="btn btn-ghost"
-                  style={{ width: "100%", justifyContent: "center", marginBottom: s.showGoogleEmailInput ? "10px" : "16px", display: "flex", gap: "10px", alignItems: "center", padding: "12px", borderRadius: "6px" }}
                   onClick={s.signInWithGoogle}
                   disabled={s.busy === 'google_auth'}
+                  style={{
+                    width: "100%",
+                    background: "#ffffff",
+                    color: "#1f1f1f",
+                    border: "none",
+                    borderRadius: "9999px",
+                    padding: "13px 20px",
+                    fontSize: "0.92rem",
+                    fontWeight: 600,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "12px",
+                    cursor: "pointer",
+                    boxShadow: "0 2px 10px rgba(0, 0, 0, 0.2)",
+                    marginBottom: "18px",
+                    transition: "transform 0.15s, box-shadow 0.15s"
+                  }}
                 >
                   {s.busy === 'google_auth' ? (
-                    <span style={{ fontSize: "0.88rem", fontWeight: 600 }}>Connecting with Google…</span>
+                    <span>Connecting with Google…</span>
                   ) : (
                     <>
-                      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"></path><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"></path><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"></path><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"></path></svg>
-                      Continue with Google
+                      <svg width="19" height="19" viewBox="0 0 24 24">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                      </svg>
+                      <span>Continue with Google</span>
                     </>
                   )}
                 </button>
 
-                {s.showGoogleEmailInput && (
-                  <form onSubmit={s.submitGoogleEmail} style={{ marginBottom: "16px", padding: "12px", background: "var(--card)", borderRadius: "8px", border: "1px solid var(--line)" }}>
-                    <label htmlFor="googleEmailInput" style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: "6px", color: "var(--ink)" }}>
-                      Sign in with your Google / Gmail address:
-                    </label>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <input
-                        type="email"
-                        id="googleEmailInput"
-                        placeholder="yourname@gmail.com"
-                        value={s.googleEmailInput}
-                        onChange={e => s.setGoogleEmailInput(e.target.value)}
-                        required
-                        autoFocus
-                        style={{ flex: 1, padding: "9px 12px", borderRadius: "6px", border: "1px solid var(--line)", background: "var(--bg)", color: "var(--ink)", fontSize: "0.85rem" }}
-                      />
-                      <button type="submit" className="btn btn-solid" style={{ padding: "9px 14px", fontSize: "0.82rem", whiteSpace: "nowrap" }} disabled={s.busy === 'google_auth'}>
-                        {s.busy === 'google_auth' ? 'Signing in…' : 'Sign In with Google →'}
-                      </button>
-                    </div>
-                    <div style={{ fontSize: "0.72rem", color: "var(--ink-soft)", marginTop: "6px" }}>
-                      Instant Google connection · No password or verification code needed.
-                    </div>
-                  </form>
-                )}
-
-                <div style={{ display: "flex", alignItems: "center", textAlign: "center", color: "var(--ink-soft)", fontSize: "0.75rem", marginBottom: "16px" }}>
-                  <hr style={{ flex: "1", border: "none", borderTop: "1px solid var(--line)" }} />
-                  <span style={{ padding: "0 10px" }}>or sign in with email</span>
-                  <hr style={{ flex: "1", border: "none", borderTop: "1px solid var(--line)" }} />
+                {/* Divider: or sign in with email */}
+                <div style={{ display: "flex", alignItems: "center", textAlign: "center", color: "#8c847a", fontSize: "0.78rem", marginBottom: "18px" }}>
+                  <hr style={{ flex: 1, border: "none", borderTop: "1px solid rgba(255, 255, 255, 0.12)" }} />
+                  <span style={{ padding: "0 12px", whiteSpace: "nowrap" }}>or sign in with email</span>
+                  <hr style={{ flex: 1, border: "none", borderTop: "1px solid rgba(255, 255, 255, 0.12)" }} />
                 </div>
 
-                {/* Login Method Toggle */}
-                <div style={{ display: "flex", gap: "6px", marginBottom: "16px", background: "var(--card)", padding: "4px", borderRadius: "6px" }}>
-                  <button
-                    type="button"
-                    className={`btn ${s.loginMethod === 'otp' ? 'btn-solid' : 'btn-ghost'}`}
-                    style={{ flex: 1, fontSize: "0.78rem", padding: "8px", border: "none", justifyContent: "center" }}
-                    onClick={() => { s.setLoginMethod('otp'); s.setAuthError(''); }}
-                  >
-                    Email OTP
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn ${s.loginMethod === 'password' ? 'btn-solid' : 'btn-ghost'}`}
-                    style={{ flex: 1, fontSize: "0.78rem", padding: "8px", border: "none", justifyContent: "center" }}
-                    onClick={() => { s.setLoginMethod('password'); s.setAuthError(''); }}
-                  >
-                    Password
-                  </button>
-                </div>
-
-                {/* Password Mode Form */}
-                {s.loginMethod === 'password' && (
-                  <form className="checkout-form" id="signInForm" style={{ border: "none", padding: "0" }} onSubmit={s.submitAuth}>
-                    <div className="field">
-                      <label htmlFor="signInEmail">Email Address</label>
+                {/* Form */}
+                <form id="signInForm" onSubmit={s.submitAuth} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+                  {s.authMode === "signup" && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "#161311", border: "1px solid rgba(255, 255, 255, 0.12)", borderRadius: "10px", padding: "12px 14px" }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8c847a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                        <circle cx="12" cy="7" r="4"/>
+                      </svg>
                       <input
-                        type="email"
-                        id="signInEmail"
-                        name="email"
-                        autoComplete="username email"
-                        placeholder="name@example.com"
-                        value={emailInput}
-                        onChange={e => setEmailInput(e.target.value)}
+                        type="text"
+                        id="signUpName"
+                        name="name"
+                        placeholder="Full name"
+                        value={nameInput}
+                        onChange={e => setNameInput(e.target.value)}
                         required
+                        style={{ flex: 1, background: "transparent", border: "none", color: "#ffffff", fontSize: "0.88rem", outline: "none" }}
                       />
                     </div>
-                    <div className="field" id="signInPasswordField" hidden={s.authMode === "reset"}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <label htmlFor="signInPassword">Password</label>
-                        <button type="button" id="forgotPasswordBtn" style={{ font: "inherit", fontSize: ".75rem", color: "var(--ink-soft)", border: "0", padding: "0", background: "none", cursor: "pointer" }} onClick={() => s.changeAuth("reset")}>
-                          Forgot password?
-                        </button>
-                      </div>
+                  )}
+
+                  {/* Email input */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "#161311", border: "1px solid rgba(255, 255, 255, 0.12)", borderRadius: "10px", padding: "12px 14px" }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8c847a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect width="20" height="16" x="2" y="4" rx="2"/>
+                      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>
+                    </svg>
+                    <input
+                      type="email"
+                      id="signInEmail"
+                      name="email"
+                      autoComplete="username email"
+                      placeholder="Email address"
+                      value={emailInput}
+                      onChange={e => setEmailInput(e.target.value)}
+                      required
+                      style={{ flex: 1, background: "transparent", border: "none", color: "#ffffff", fontSize: "0.88rem", outline: "none" }}
+                    />
+                  </div>
+
+                  {/* Password input with eye toggle */}
+                  {s.authMode !== "reset" && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "10px", background: "#161311", border: "1px solid rgba(255, 255, 255, 0.12)", borderRadius: "10px", padding: "12px 14px" }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8c847a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/>
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                      </svg>
                       <input
-                        type="password"
+                        type={showPassword ? "text" : "password"}
                         id="signInPassword"
                         name="password"
-                        autoComplete="current-password"
-                        placeholder="••••••••••••"
+                        autoComplete={s.authMode === "signup" ? "new-password" : "current-password"}
+                        placeholder="Password"
                         value={password}
                         onChange={e => setPassword(e.target.value)}
-                        required={s.authMode !== "reset"}
+                        required
+                        style={{ flex: 1, background: "transparent", border: "none", color: "#ffffff", fontSize: "0.88rem", outline: "none" }}
                       />
+                      <button
+                        type="button"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        onClick={() => setShowPassword(prev => !prev)}
+                        style={{ background: "none", border: "none", color: "#8c847a", cursor: "pointer", display: "grid", placeItems: "center", padding: "0" }}
+                      >
+                        {showPassword ? (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/>
+                            <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/>
+                            <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/>
+                            <line x1="2" x2="22" y1="2" y2="22"/>
+                          </svg>
+                        ) : (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                            <circle cx="12" cy="12" r="3"/>
+                          </svg>
+                        )}
+                      </button>
                     </div>
-                    <p className="field-error" id="signInError">{s.authError}</p>
-                    <button type="submit" className="btn btn-solid" style={{ justifyContent: "center", padding: "14px", marginTop: "8px" }} disabled={Boolean(s.busy)}>
-                      {s.busy === "auth" ? "Please wait…" : s.authMode === "reset" ? "Send reset link" : "Sign In"}
-                    </button>
-                  </form>
-                )}
+                  )}
 
-                {/* OTP Mode Form */}
-                {s.loginMethod === 'otp' && (
-                  <div className="checkout-form" style={{ border: "none", padding: "0" }}>
-                    <div className="field">
-                      <label htmlFor="otpIdentifier">Email Address</label>
-                      <div style={{ display: "flex", gap: "8px" }}>
+                  {/* Remember me & Forgot password */}
+                  {s.authMode === "signin" && (
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: "0.82rem", margin: "2px 0 4px 0" }}>
+                      <label style={{ display: "inline-flex", alignItems: "center", gap: "8px", cursor: "pointer", color: "#b5ada2" }}>
                         <input
-                          type="email"
-                          id="otpIdentifier"
-                          autoComplete="email"
-                          placeholder="name@example.com"
-                          value={s.otpIdentifier}
-                          onChange={e => s.setOtpIdentifier(e.target.value)}
-                          disabled={s.busy === 'otp_send'}
-                          style={{ flex: 1 }}
+                          type="checkbox"
+                          name="rememberMe"
+                          checked={rememberMe}
+                          onChange={e => setRememberMe(e.target.checked)}
+                          style={{ accentColor: "#a77c52", width: "15px", height: "15px", cursor: "pointer" }}
                         />
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          onClick={() => s.sendOtp(s.otpIdentifier)}
-                          disabled={s.busy === 'otp_send' || !s.otpIdentifier.trim()}
-                          style={{ whiteSpace: "nowrap", fontSize: "0.82rem" }}
-                        >
-                          {s.busy === 'otp_send' ? 'Sending…' : s.otpSent ? 'Resend' : 'Send Code'}
-                        </button>
-                      </div>
+                        <span>Remember me</span>
+                      </label>
+                      <button
+                        type="button"
+                        id="forgotPasswordBtn"
+                        onClick={() => s.changeAuth("reset")}
+                        style={{ background: "none", border: "none", color: "#c5a880", cursor: "pointer", padding: "0", fontSize: "0.82rem", fontWeight: 500 }}
+                      >
+                        Forgot password?
+                      </button>
                     </div>
+                  )}
 
-                    {s.otpNotice && (
-                      <div style={{ background: "rgba(39, 174, 96, 0.1)", border: "1px solid rgba(39, 174, 96, 0.3)", borderRadius: "6px", padding: "8px 12px", fontSize: "0.78rem", color: "#27ae60", margin: "6px 0" }}>
-                        {s.otpNotice}
-                      </div>
-                    )}
+                  {s.authError && (
+                    <p className="field-error" id="signInError" style={{ color: "#e76f51", fontSize: "0.8rem", margin: "0" }}>
+                      {s.authError}
+                    </p>
+                  )}
 
-                    {s.otpSent && (
-                      <form onSubmit={s.verifyOtp} style={{ marginTop: "12px" }}>
-                        <div className="field">
-                          <label htmlFor="otpCodeInput">Enter 6-Digit Verification Code</label>
-                          <input
-                            type="text"
-                            id="otpCodeInput"
-                            inputMode="numeric"
-                            autoComplete="one-time-code"
-                            maxLength={6}
-                            placeholder="• • • • • •"
-                            value={s.otpCode}
-                            onChange={e => s.setOtpCode(e.target.value.replace(/\D/g, ''))}
-                            style={{ letterSpacing: "6px", fontSize: "1.2rem", textAlign: "center" }}
-                            required
-                            autoFocus
-                          />
-                        </div>
-                        <p className="field-error">{s.authError}</p>
-                        <button
-                          type="submit"
-                          className="btn btn-solid"
-                          style={{ width: "100%", justifyContent: "center", padding: "14px", marginTop: "8px" }}
-                          disabled={s.busy === 'otp_verify' || s.otpCode.length < 6}
-                        >
-                          {s.busy === 'otp_verify' ? 'Verifying…' : 'Verify & Sign In'}
-                        </button>
-                      </form>
-                    )}
-                    {!s.otpSent && <p className="field-error">{s.authError}</p>}
-                  </div>
-                )}
+                  {/* Sign In button */}
+                  <button
+                    type="submit"
+                    disabled={Boolean(s.busy)}
+                    style={{
+                      width: "100%",
+                      background: "linear-gradient(135deg, #a77c52 0%, #8b5e34 100%)",
+                      color: "#ffffff",
+                      border: "none",
+                      borderRadius: "12px",
+                      padding: "14px",
+                      fontSize: "0.95rem",
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      marginTop: "4px",
+                      boxShadow: "0 4px 14px rgba(167, 124, 82, 0.35)",
+                      transition: "opacity 0.15s, transform 0.15s"
+                    }}
+                  >
+                    {s.busy === "auth"
+                      ? "Please wait…"
+                      : s.authMode === "signup"
+                      ? "Create Account"
+                      : s.authMode === "reset"
+                      ? "Send Reset Link"
+                      : "Sign In"}
+                  </button>
+                </form>
 
-                <div style={{ textAlign: "center", marginTop: "20px", borderTop: "1px solid var(--line)", paddingTop: "14px" }}>
+                {/* Footer link */}
+                <div style={{ textAlign: "center", marginTop: "18px", fontSize: "0.84rem", color: "#a0978d" }}>
+                  {s.authMode === "signup" ? (
+                    <>
+                      Already have an account?{" "}
+                      <button
+                        type="button"
+                        onClick={() => s.changeAuth("signin")}
+                        style={{ background: "none", border: "none", color: "#ffffff", textDecoration: "underline", fontWeight: 600, cursor: "pointer", padding: "0" }}
+                      >
+                        Sign In
+                      </button>
+                    </>
+                  ) : s.authMode === "reset" ? (
+                    <button
+                      type="button"
+                      onClick={() => s.changeAuth("signin")}
+                      style={{ background: "none", border: "none", color: "#c5a880", textDecoration: "underline", fontWeight: 500, cursor: "pointer", padding: "0" }}
+                    >
+                      ← Back to Sign In
+                    </button>
+                  ) : (
+                    <>
+                      Don't have an account?{" "}
+                      <button
+                        type="button"
+                        id="createAccountLink"
+                        onClick={() => s.changeAuth("signup")}
+                        style={{ background: "none", border: "none", color: "#ffffff", textDecoration: "underline", fontWeight: 600, cursor: "pointer", padding: "0" }}
+                      >
+                        Create Account
+                      </button>
+                    </>
+                  )}
+                </div>
+
+                <div style={{ textAlign: "center", marginTop: "14px", borderTop: "1px solid rgba(255, 255, 255, 0.08)", paddingTop: "12px" }}>
                   <button
                     type="button"
-                    style={{ background: "none", border: "none", color: "var(--accent)", fontSize: "0.84rem", fontWeight: 600, cursor: "pointer", textDecoration: "underline" }}
+                    style={{ background: "none", border: "none", color: "#c5a880", fontSize: "0.82rem", fontWeight: 500, cursor: "pointer", textDecoration: "underline" }}
                     onClick={() => { s.setGuest(true); s.setAccountView('shipping'); }}
                   >
                     Checking out? Enter shipping address & contact phone →

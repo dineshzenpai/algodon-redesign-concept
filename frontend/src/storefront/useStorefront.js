@@ -248,6 +248,10 @@ export function useStorefront() {
         loggedUser = { email: data.email, full_name: data.email.split('@')[0] };
       }
       loggedUser = { ...loggedUser, isAdmin: Boolean(result.isAdmin), role: result.role };
+      if (result.session?.access_token) {
+        setCustomerToken(result.session.access_token);
+        writeStorage('algodon_customer_token', result.session.access_token);
+      }
       setUser(loggedUser);
       writeStorage('algodon_customer_user', loggedUser);
       setIsAdmin(Boolean(result.isAdmin));
@@ -336,32 +340,40 @@ export function useStorefront() {
 
   async function signInWithGoogle() {
     setAuthError('');
-    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-    if (typeof window !== 'undefined' && window.google?.accounts?.id && googleClientId) {
-      try {
-        setBusy('google_auth');
-        window.google.accounts.id.initialize({
-          client_id: googleClientId,
-          callback: async (res) => {
-            if (res?.credential) {
-              await completeGoogleSignIn({ credential: res.credential });
+    setBusy('google_auth');
+    try {
+      if (client?.auth) {
+        const redirectUrl = typeof window !== 'undefined'
+          ? `${window.location.origin}/account`
+          : 'https://www.algodonfashion.com/account';
+
+        const { data, error } = await client.auth.signInWithOAuth({
+          provider: 'google',
+          options: {
+            redirectTo: redirectUrl,
+            queryParams: {
+              prompt: 'select_account'
             }
           }
         });
-        window.google.accounts.id.prompt((notification) => {
-          if (notification?.isNotDisplayed?.() || notification?.isSkippedMoment?.()) {
-            setShowGoogleEmailInput(true);
-          }
-        });
-        return;
-      } catch (err) {
-        console.warn('[auth] Google One Tap notice:', err.message);
-      } finally {
-        setBusy('');
+
+        if (error) {
+          console.warn('[auth] Google OAuth error:', error.message);
+          setAuthError(error.message);
+          notify(error.message, true);
+        } else if (data?.url) {
+          window.location.href = data.url;
+          return;
+        }
+      } else {
+        setAuthError('Authentication service is initializing. Please try again in a moment.');
       }
+    } catch (err) {
+      console.warn('[auth] Google Sign In error:', err.message);
+      setAuthError(err.message || 'Could not redirect to Google Login.');
+    } finally {
+      setBusy('');
     }
-    // If native Google OAuth is not configured yet or not available, open the email connection prompt
-    setShowGoogleEmailInput(true);
   }
 
   async function submitGoogleEmail(e) {
