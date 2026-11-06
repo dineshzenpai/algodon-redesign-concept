@@ -166,12 +166,12 @@ export function AccountDrawer({s}) {
                   </p>
                 </div>
 
-                {/* Google Sign In - Instant 1-Click Connection */}
+                {/* Google Sign In - Instant Connection */}
                 <button
                   type="button"
                   id="googleSignInBtn"
                   className="btn btn-ghost"
-                  style={{ width: "100%", justifyContent: "center", marginBottom: "16px", display: "flex", gap: "10px", alignItems: "center", padding: "12px", borderRadius: "6px" }}
+                  style={{ width: "100%", justifyContent: "center", marginBottom: s.showGoogleEmailInput ? "10px" : "16px", display: "flex", gap: "10px", alignItems: "center", padding: "12px", borderRadius: "6px" }}
                   onClick={s.signInWithGoogle}
                   disabled={s.busy === 'google_auth'}
                 >
@@ -184,6 +184,32 @@ export function AccountDrawer({s}) {
                     </>
                   )}
                 </button>
+
+                {s.showGoogleEmailInput && (
+                  <form onSubmit={s.submitGoogleEmail} style={{ marginBottom: "16px", padding: "12px", background: "var(--card)", borderRadius: "8px", border: "1px solid var(--line)" }}>
+                    <label htmlFor="googleEmailInput" style={{ display: "block", fontSize: "0.8rem", fontWeight: 600, marginBottom: "6px", color: "var(--ink)" }}>
+                      Sign in with your Google / Gmail address:
+                    </label>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <input
+                        type="email"
+                        id="googleEmailInput"
+                        placeholder="yourname@gmail.com"
+                        value={s.googleEmailInput}
+                        onChange={e => s.setGoogleEmailInput(e.target.value)}
+                        required
+                        autoFocus
+                        style={{ flex: 1, padding: "9px 12px", borderRadius: "6px", border: "1px solid var(--line)", background: "var(--bg)", color: "var(--ink)", fontSize: "0.85rem" }}
+                      />
+                      <button type="submit" className="btn btn-solid" style={{ padding: "9px 14px", fontSize: "0.82rem", whiteSpace: "nowrap" }} disabled={s.busy === 'google_auth'}>
+                        {s.busy === 'google_auth' ? 'Sending…' : 'Send Code →'}
+                      </button>
+                    </div>
+                    <div style={{ fontSize: "0.72rem", color: "var(--ink-soft)", marginTop: "6px" }}>
+                      A secure 6-digit login code will be sent to your Gmail inbox.
+                    </div>
+                  </form>
+                )}
 
                 <div style={{ display: "flex", alignItems: "center", textAlign: "center", color: "var(--ink-soft)", fontSize: "0.75rem", marginBottom: "16px" }}>
                   <hr style={{ flex: "1", border: "none", borderTop: "1px solid var(--line)" }} />

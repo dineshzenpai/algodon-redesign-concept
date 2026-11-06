@@ -20,11 +20,27 @@ const safeUser = user => user ? { id: user.id, email: user.email, full_name: use
 const tokenHash = token => createHash('sha256').update(token).digest('hex');
 
 const otpCache = new Map();
-// Automatically prune expired OTP records
+const customerSessions = new Map();
+
+export function getCustomerUuid(identifier) {
+  const hash = createHash('sha256').update('algodon:cust:' + String(identifier || '').trim().toLowerCase()).digest('hex');
+  return [
+    hash.slice(0, 8),
+    hash.slice(8, 12),
+    '4' + hash.slice(13, 16),
+    ((parseInt(hash.slice(16, 18), 16) & 0x3f) | 0x80).toString(16).padStart(2, '0') + hash.slice(18, 20),
+    hash.slice(20, 32)
+  ].join('-');
+}
+
+// Automatically prune expired OTP records and customer sessions
 setInterval(() => {
   const now = Date.now();
   for (const [key, val] of otpCache.entries()) {
     if (val.expiresAt < now) otpCache.delete(key);
+  }
+  for (const [token, session] of customerSessions.entries()) {
+    if (session.expiresAt < now) customerSessions.delete(token);
   }
 }, 60000).unref();
 
@@ -33,6 +49,22 @@ export async function customerAuth(req, res, next) {
   if (!match) return res.status(401).json({ error: 'Sign in to continue.' });
   const token = match[1];
   if (token.startsWith('cust-')) {
+    const session = customerSessions.get(token);
+    if (session) {
+      if (session.expiresAt && session.expiresAt < Date.now()) {
+        customerSessions.delete(token);
+        return res.status(401).json({ error: 'Session expired. Sign in again.' });
+      }
+      req.customer = {
+        id: session.id,
+        email: session.email,
+        phone: session.phone || '',
+        user_metadata: { full_name: session.full_name || '' },
+        email_confirmed_at: session.email_confirmed_at || new Date().toISOString()
+      };
+      req.customerToken = token;
+      return next();
+    }
     req.customer = {
       id: '00000000-0000-4000-8000-000000000001',
       email: 'customer@algodonfashion.com',
@@ -312,9 +344,20 @@ authRouter.post('/otp/verify', async (req, res) => {
   }
 
   // Customer session
-  const customerId = 'cust-' + createHash('sha256').update(cacheKey).digest('hex').slice(0, 16);
+  const customerId = getCustomerUuid(cacheKey);
   const customerEmail = isEmail ? rawIdentifier : `${digits.slice(-10)}@customer.algodonfashion.com`;
-  const customerToken = 'cust-token-' + Date.now();
+  const customerToken = 'cust-token-' + createHash('sha256').update(cacheKey + Date.now() + Math.random()).digest('hex');
+  const customerName = isEmail ? rawIdentifier.split('@')[0] : 'Algodon Customer';
+  const customerPhone = isEmail ? '' : `+91 ${digits.slice(-10)}`;
+  const expiresAt = Date.now() + 7 * 86400 * 1000;
+
+  customerSessions.set(customerToken, {
+    id: customerId,
+    email: customerEmail,
+    phone: customerPhone,
+    full_name: customerName,
+    expiresAt
+  });
 
   return res.json({
     ok: true,
@@ -323,22 +366,39 @@ authRouter.post('/otp/verify', async (req, res) => {
     user: {
       id: customerId,
       email: customerEmail,
-      phone: isEmail ? '' : `+91 ${digits.slice(-10)}`,
-      full_name: isEmail ? rawIdentifier.split('@')[0] : 'Algodon Customer',
+      phone: customerPhone,
+      full_name: customerName,
       isAdmin: false,
       role: 'customer'
     },
     session: {
       access_token: customerToken,
-      expires_in: 3600
+      expires_in: 7 * 86400
     }
   });
 });
 
 authRouter.post('/google', async (req, res) => {
-  const emailStr = String(req.body?.email || '').trim().toLowerCase();
-  const nameStr = String(req.body?.name || '').trim();
-  const avatarUrl = String(req.body?.avatar || req.body?.picture || '').trim();
+  let emailStr = String(req.body?.email || '').trim().toLowerCase();
+  let nameStr = String(req.body?.name || '').trim();
+  let avatarUrl = String(req.body?.avatar || req.body?.picture || '').trim();
+
+  // Support Google Identity Services JWT credential
+  if (req.body?.credential && typeof req.body.credential === 'string') {
+    try {
+      const parts = req.body.credential.split('.');
+      if (parts.length === 3) {
+        const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8'));
+        if (payload.email) {
+          emailStr = payload.email.trim().toLowerCase();
+          nameStr = nameStr || payload.name || '';
+          avatarUrl = avatarUrl || payload.picture || '';
+        }
+      }
+    } catch (err) {
+      console.warn('[auth/google] Google credential decode note:', err.message);
+    }
+  }
 
   if (!emailStr || !emailStr.includes('@')) {
     return res.status(400).json({ error: 'A valid Google email is required.' });
@@ -394,8 +454,19 @@ authRouter.post('/google', async (req, res) => {
   }
 
   // Real Customer Account for Google User
-  const customerId = 'cust-google-' + createHash('sha256').update(emailStr).digest('hex').slice(0, 16);
-  const sessionToken = 'cust-sess-google-' + Date.now();
+  const customerId = getCustomerUuid(emailStr);
+  const sessionToken = 'cust-sess-google-' + createHash('sha256').update(emailStr + Date.now() + Math.random()).digest('hex');
+  const customerName = nameStr || emailStr.split('@')[0];
+  const expiresAt = Date.now() + 7 * 86400 * 1000;
+
+  customerSessions.set(sessionToken, {
+    id: customerId,
+    email: emailStr,
+    phone: '',
+    full_name: customerName,
+    avatar_url: avatarUrl || null,
+    expiresAt
+  });
 
   return res.json({
     ok: true,
@@ -404,7 +475,7 @@ authRouter.post('/google', async (req, res) => {
     user: {
       id: customerId,
       email: emailStr,
-      full_name: nameStr || emailStr.split('@')[0],
+      full_name: customerName,
       avatar_url: avatarUrl || null,
       provider: 'google',
       email_confirmed: true,

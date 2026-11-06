@@ -48,6 +48,8 @@ export function useStorefront() {
   const [otpCode,setOtpCode] = useState('');
   const [otpNotice,setOtpNotice] = useState('');
   const [googleModal,setGoogleModal] = useState(false);
+  const [showGoogleEmailInput,setShowGoogleEmailInput] = useState(false);
+  const [googleEmailInput,setGoogleEmailInput] = useState('');
   const customerId = useRef(null), cartRef = useRef(cart), toastTimer = useRef();
   cartRef.current = cart;
   const notify = useCallback(message => { setToast(message); clearTimeout(toastTimer.current); toastTimer.current = setTimeout(() => setToast(''),4000); },[]);
@@ -65,6 +67,8 @@ export function useStorefront() {
     setAuthMode('signin');
     setAuthError('');
     setGoogleModal(false);
+    setShowGoogleEmailInput(false);
+    setGoogleEmailInput('');
     setAccountView('shipping');
     open('account');
     if (typeof window !== 'undefined' && location.pathname !== '/account') {
@@ -325,32 +329,62 @@ export function useStorefront() {
 
   async function signInWithGoogle() {
     setAuthError('');
-    await completeGoogleSignIn('kartheekkareti088@gmail.com', 'Kartheek Kareti');
+    const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
+    if (typeof window !== 'undefined' && window.google?.accounts?.id && googleClientId) {
+      try {
+        setBusy('google_auth');
+        window.google.accounts.id.initialize({
+          client_id: googleClientId,
+          callback: async (res) => {
+            if (res?.credential) {
+              await completeGoogleSignIn({ credential: res.credential });
+            }
+          }
+        });
+        window.google.accounts.id.prompt();
+        return;
+      } catch (err) {
+        console.warn('[auth] Google One Tap notice:', err.message);
+      } finally {
+        setBusy('');
+      }
+    }
+    // If native Google OAuth is not configured yet, prompt customer to enter their own Google email
+    setShowGoogleEmailInput(prev => !prev);
   }
 
-  async function completeGoogleSignIn(targetEmail = 'kartheekkareti088@gmail.com', targetName = 'Kartheek Kareti') {
+  async function submitGoogleEmail(e) {
+    if (e) e.preventDefault();
+    const emailToUse = (googleEmailInput || '').trim().toLowerCase();
+    if (!emailToUse || !emailToUse.includes('@')) {
+      setAuthError('Please enter a valid Google email address.');
+      return;
+    }
+    setBusy('google_auth');
+    setAuthError('');
+    try {
+      await sendOtp(emailToUse);
+      setShowGoogleEmailInput(false);
+      setLoginMethod('otp');
+      notify(`Verification code sent to ${emailToUse}. Enter the code below to complete sign-in.`);
+    } catch (err) {
+      setAuthError(err.message || 'Could not send verification code.');
+    } finally {
+      setBusy('');
+    }
+  }
+
+  async function completeGoogleSignIn(payload) {
     setBusy('google_auth');
     try {
+      const body = typeof payload === 'string'
+        ? { email: payload, name: payload.split('@')[0], provider: 'google' }
+        : { ...payload, provider: 'google' };
+
       const res = await request('/api/auth/google', {
         method: 'POST',
-        body: JSON.stringify({
-          email: targetEmail,
-          name: targetName,
-          provider: 'google'
-        })
+        body: JSON.stringify(body)
       });
-
-      if (client) {
-        try {
-          await client.auth.signInWithOtp({
-            email: targetEmail,
-            options: {
-              data: { full_name: targetName, provider: 'google' },
-              shouldCreateUser: true
-            }
-          }).catch(err => console.log('[auth] Supabase background OTP note:', err.message));
-        } catch {}
-      }
 
       if (res?.user) {
         const loggedUser = {
@@ -364,6 +398,7 @@ export function useStorefront() {
         setAdminRole(res.role || null);
         setGuest(false);
         setGoogleModal(false);
+        setShowGoogleEmailInput(false);
         setPanel('account');
         setAccountView('profile');
         if (res.isAdmin) {
@@ -924,6 +959,7 @@ export function useStorefront() {
     activeProduct,setActiveProduct,openProductModal,closeProductModal,
     helpTopic,setHelpTopic,openHelp,closeHelp,
     loginMethod,setLoginMethod,otpSent,setOtpSent,otpIdentifier,setOtpIdentifier,otpCode,setOtpCode,otpNotice,
-    sendOtp,verifyOtp,signInWithGoogle,googleModal,setGoogleModal,completeGoogleSignIn
+    sendOtp,verifyOtp,signInWithGoogle,googleModal,setGoogleModal,completeGoogleSignIn,
+    showGoogleEmailInput,setShowGoogleEmailInput,googleEmailInput,setGoogleEmailInput,submitGoogleEmail
   };
 }
