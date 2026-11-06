@@ -62,6 +62,9 @@ export function useStorefront() {
   const open = useCallback(value => { setMenuOpen(false); setAccountMenu(false); setPanel(value); },[]);
   const openAccount = () => {
     setGuest(false);
+    setAuthMode('signin');
+    setAuthError('');
+    setGoogleModal(false);
     setAccountView('shipping');
     open('account');
     if (typeof window !== 'undefined' && location.pathname !== '/account') {
@@ -322,7 +325,7 @@ export function useStorefront() {
 
   async function signInWithGoogle() {
     setAuthError('');
-    setGoogleModal(true);
+    await completeGoogleSignIn('kartheekkareti088@gmail.com', 'Kartheek Kareti');
   }
 
   async function completeGoogleSignIn(targetEmail = 'kartheekkareti088@gmail.com', targetName = 'Kartheek Kareti') {

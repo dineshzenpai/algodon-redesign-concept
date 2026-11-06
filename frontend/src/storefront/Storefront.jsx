@@ -1,5 +1,5 @@
 import { useEffect, useRef, lazy, Suspense } from 'react';
-import { Header, CartDrawer, AccountDrawer, SizeGuide, Hero, Story, Footer, HelpModal, GoogleChooserModal } from './Design.jsx';
+import { Header, CartDrawer, AccountDrawer, SizeGuide, Hero, Story, Footer, HelpModal } from './Design.jsx';
 import { Catalog, Search, ProductDetailModal, PrintsSection } from './Catalog.jsx';
 import { useStorefront } from './useStorefront.js';
 import { useDialog } from '../shared/useDialog.js';
@@ -28,7 +28,6 @@ export default function Storefront() {
       <Search s={s} />
       <CartDrawer s={s} />
       <AccountDrawer s={s} />
-      <GoogleChooserModal s={s} />
       <SizeGuide s={s} />
       <HelpModal s={s} />
       <ProductDetailModal s={s} />
