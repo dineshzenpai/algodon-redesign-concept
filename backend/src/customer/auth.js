@@ -173,8 +173,17 @@ authRouter.post('/login', async (req, res) => {
   }
 
   if (error || !data?.user) {
+    const errText = String(error?.message || '').toLowerCase();
+    let userFriendlyError = 'Email or password is incorrect.';
+    if (errText.includes('email not confirmed')) {
+      userFriendlyError = 'Please confirm your email address before signing in (check your inbox for the confirmation email).';
+    } else if (errText.includes('invalid login credentials') || errText.includes('invalid credentials')) {
+      userFriendlyError = 'Incorrect email or password. If you haven’t created an account yet, click "Create Account" below.';
+    } else if (error?.message) {
+      userFriendlyError = error.message;
+    }
     return res.status(error?.status === 429 ? 429 : 401).json({
-      error: 'Email or password is incorrect, or the email is not confirmed.'
+      error: userFriendlyError
     });
   }
 
