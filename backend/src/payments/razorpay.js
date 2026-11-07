@@ -3,6 +3,7 @@ import crypto from 'node:crypto';
 import Razorpay from 'razorpay';
 import { z } from 'zod';
 import { env } from '../config/env.js';
+import { getDb } from '../config/db.js';
 import { sendOrderBillNotification, sendRefundNotification } from '../lib/notifications.js';
 
 export const razorpayRouter = Router();
@@ -302,6 +303,53 @@ export async function handleNotifyBill(req, res) {
   }
 }
 
+export async function handleRazorpayWebhook(req, res) {
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.RAZORPAY_KEY_SECRET || '';
+  const signature = req.get('x-razorpay-signature');
+
+  if (!signature || !webhookSecret) {
+    return res.status(200).json({ status: 'ignored', reason: 'Missing signature or webhook secret' });
+  }
+
+  try {
+    const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+    const expectedSignature = crypto
+      .createHmac('sha256', webhookSecret)
+      .update(rawBody)
+      .digest('hex');
+
+    if (signature !== expectedSignature) {
+      return res.status(400).json({ error: 'Invalid webhook signature' });
+    }
+
+    const event = req.body?.event;
+    const payload = req.body?.payload;
+
+    if (event === 'payment.captured' || event === 'order.paid') {
+      const payment = payload?.payment?.entity;
+      const orderId = payment?.order_id;
+      const paymentId = payment?.id;
+      try {
+        const db = getDb();
+        if (db && orderId) {
+          await db.from('orders').update({
+            status: 'processing',
+            payment_status: 'paid',
+            payment_id: paymentId
+          }).eq('id', orderId);
+        }
+      } catch (dbErr) {
+        console.warn('[razorpay/webhook] Database order update note:', dbErr.message);
+      }
+    }
+
+    return res.status(200).json({ status: 'ok' });
+  } catch (err) {
+    console.error('[razorpay/webhook] Webhook error:', err);
+    return res.status(500).json({ error: 'Webhook handling failed' });
+  }
+}
+
 razorpayRouter.post('/create-order', handleCreateOrder);
 razorpayRouter.post('/checkout/razorpay/create-order', handleCreateOrder);
 
@@ -312,3 +360,6 @@ razorpayRouter.post('/refund', handleRefundPayment);
 razorpayRouter.post('/checkout/razorpay/refund', handleRefundPayment);
 
 razorpayRouter.post('/checkout/notify-bill', handleNotifyBill);
+
+razorpayRouter.post('/razorpay/webhook', handleRazorpayWebhook);
+razorpayRouter.post('/checkout/razorpay/webhook', handleRazorpayWebhook);
