@@ -157,7 +157,7 @@ app.post('/api/admin/invoice', invoiceLimiter, requireAdmin, requireAdminCsrf, a
                 <h3>Order Details (Invoice: ${escapeHtml(invoiceNo)})</h3>
                 <ul>${itemsHtml}</ul>
                 <p><strong>Total: Rs. ${subtotal.toLocaleString('en-IN')}</strong> (Free Shipping)</p>
-                <p style="color: #8a7c6c; font-size: 0.8rem; margin-top: 20px;">This is a concept preview invoice.</p>
+                <p style="color: #8a7c6c; font-size: 0.8rem; margin-top: 20px;">This is an official automated invoice for your Algodon Organic order.</p>
             </div>`
         };
 

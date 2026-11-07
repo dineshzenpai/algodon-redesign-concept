@@ -848,11 +848,11 @@ export function HelpModal({s}) {
             <span className="eyebrow" style={{ color: 'var(--accent)' }}>Help & Policies</span>
             <h3 style={{ fontFamily: "'Fraunces', serif", fontSize: '1.6rem', margin: '4px 0 14px' }}>Contact Algodon Concierge</h3>
             <p style={{ color: 'var(--ink)', lineHeight: 1.6, fontSize: '0.9rem' }}>
-              We're a small-batch artisan brand and we respond to customer inquiries directly without automated bots.
+              We are a small-batch artisan menswear studio. Our concierge team personally reads and responds to every customer message.
             </p>
             <div style={{ background: 'var(--card)', padding: '16px', borderRadius: '6px', margin: '14px 0', fontSize: '0.88rem' }}>
               <div style={{ marginBottom: '8px' }}><strong>Email:</strong> concierge@algodonfashion.com</div>
-              <div style={{ marginBottom: '8px' }}><strong>WhatsApp Support:</strong> +91 98765 43210 (10 AM – 7 PM IST)</div>
+              <div style={{ marginBottom: '8px' }}><strong>WhatsApp Concierge:</strong> +91 98290 14280 (10 AM – 7 PM IST)</div>
               <div><strong>Workshop:</strong> Sanganer & Bagru Craft Cluster, Jaipur, Rajasthan, India</div>
             </div>
           </div>

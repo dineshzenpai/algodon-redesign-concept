@@ -1,4 +1,4 @@
-export const conceptProducts = [
+export const initialProducts = [
   {
     id: 'a0000000-0000-4000-8000-000000000001',
     slug: 'golden-brown',
@@ -185,6 +185,7 @@ export const conceptProducts = [
   }
 ].map(product => ({
   ...product,
-  concept: false,
   published: true
 }));
+
+export const conceptProducts = initialProducts;

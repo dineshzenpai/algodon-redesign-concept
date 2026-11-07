@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import { request, money, readStorage, writeStorage, removeStorage } from '../shared/api.js';
 import { normalizeCart } from '../shared/safety.js';
-import { conceptProducts } from './catalog.js';
+import { initialProducts } from './catalog.js';
 
-const CART = 'algodon_demo_cart', OWNER = 'algodon_customer_cart_owner', ADDRESS = 'algodon_demo_address';
+const CART = 'algodon_cart', OWNER = 'algodon_customer_cart_owner', ADDRESS = 'algodon_address', ORDERS = 'algodon_orders';
 const route = () => location.pathname.replace(/\/$/,'');
 const emptyAddress = {name:'',email:'',phone:'',address1:'',address2:'',city:'',state:'',pin:''};
 function generateUuid() {
@@ -20,14 +20,19 @@ function cartOwner() {
   try { const owner=localStorage.getItem(OWNER); if (!owner) return null; try { return JSON.parse(owner); } catch { return owner; } } catch { return null; }
 }
 function savedAddress() {
-  const saved = readStorage(ADDRESS, {});
+  const saved = readStorage(ADDRESS, null) || readStorage('algodon_demo_address', {});
   return Object.fromEntries(Object.keys(emptyAddress).map(key => [key, saved[key] || saved['ship'+key[0].toUpperCase()+key.slice(1)] || '']));
 }
+function readOrders() {
+  const current = readStorage(ORDERS, null);
+  if (current) return current;
+  return readStorage('algodon_demo_orders', []);
+}
 export function useStorefront() {
-  const [products,setProducts] = useState(conceptProducts);
+  const [products,setProducts] = useState(initialProducts);
   const [panel,setPanel] = useState(null), [menuOpen,setMenuOpen] = useState(false), [accountMenu,setAccountMenu] = useState(false);
   const [scrolled,setScrolled] = useState(scrollY > 12);
-  const [cart,setCart] = useState(() => cartOwner() ? [] : normalizeCart(readStorage(CART,[])));
+  const [cart,setCart] = useState(() => cartOwner() ? [] : normalizeCart(readStorage(CART, null) || readStorage('algodon_demo_cart', [])));
   const [coupon,setCoupon] = useState(null), [couponCode,setCouponCode] = useState(''), [couponMessage,setCouponMessage] = useState('');
   const [user,setUser] = useState(() => readStorage('algodon_customer_user', null));
   const [customerToken,setCustomerToken] = useState(() => readStorage('algodon_customer_token', ''));
@@ -37,7 +42,7 @@ export function useStorefront() {
   const [authMode,setAuthMode] = useState(() => new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery' ? 'recovery' : 'signin');
   const [authError,setAuthError] = useState(''), [guest,setGuest] = useState(false), [accountView,setAccountView] = useState('shipping');
   const [address,setAddress] = useState(savedAddress), [addressError,setAddressError] = useState('');
-  const [newsletterOptIn,setNewsletterOptIn] = useState(true), [newsletterMessage,setNewsletterMessage] = useState('Saved to a live database — real signups.');
+  const [newsletterOptIn,setNewsletterOptIn] = useState(true), [newsletterMessage,setNewsletterMessage] = useState('');
   const [busy,setBusy] = useState(''), [toast,setToast] = useState(''), [lastOrder,setLastOrder] = useState(null);
   const [cartNote,setCartNote] = useState('');
   const [cartReady,setCartReady] = useState(false);
@@ -633,9 +638,9 @@ export function useStorefront() {
 
             removeStorage('algodon_pending_checkout', sessionStorage);
             setLastOrder(confirmedOrder);
-            const saved = readStorage('algodon_demo_orders', []);
+            const saved = readOrders();
             if (!user && !saved.some(item => item.id === confirmedOrder.id)) {
-              writeStorage('algodon_demo_orders', [...saved, confirmedOrder]);
+              writeStorage(ORDERS, [...saved, confirmedOrder]);
             }
             setCart([]);
             setCoupon(null);
@@ -706,8 +711,8 @@ export function useStorefront() {
         key: razorpayKey,
         amount: orderRes.amount,
         currency: orderRes.currency || 'INR',
-        name: 'Algodon Organic (Test)',
-        description: 'Test Razorpay Standard Checkout',
+        name: 'Algodon Organic',
+        description: '100% Organic Hand Block-Print Shirts',
         image: '/img/favicon.svg',
         order_id: orderRes.order_id,
         prefill: {
@@ -969,8 +974,8 @@ export function useStorefront() {
       };
 
       setLastOrder(updated);
-      const saved = readStorage('algodon_demo_orders', []);
-      writeStorage('algodon_demo_orders', saved.map(o => o.id === order.id ? updated : o));
+      const saved = readOrders();
+      writeStorage(ORDERS, saved.map(o => o.id === order.id ? updated : o));
 
       notify(`Automated refund initiated via Razorpay (Ref: ${updated.refund_id.slice(0, 10)}). Confirmation sent to your email & SMS.`);
     } catch (err) {

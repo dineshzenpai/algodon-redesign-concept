@@ -21,7 +21,10 @@ export function AccountHistory({s}) {
     setError(''); setData([]);
     if (!s.user) {
       setLoading(false);
-      if (s.accountView === 'orders') setData(readStorage('algodon_demo_orders',[]).filter(order => !order.customer_user_id && order.customer?.email === s.address.email));
+      if (s.accountView === 'orders') {
+        const localOrders = readStorage('algodon_orders', null) || readStorage('algodon_demo_orders', []);
+        setData(localOrders.filter(order => !order.customer_user_id && order.customer?.email === s.address.email));
+      }
       return;
     }
     setLoading(true);
