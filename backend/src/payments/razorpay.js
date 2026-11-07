@@ -9,8 +9,8 @@ import { sendOrderBillNotification, sendRefundNotification } from '../lib/notifi
 export const razorpayRouter = Router();
 
 function getCredentials() {
-  const keyId = env.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || '';
-  const keySecret = env.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || '';
+  const keyId = env.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_TwvLKjX2XuZDFi';
+  const keySecret = env.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || 'vMpk4UX8O6mqF00S6598QBQ3';
   return { keyId, keySecret };
 }
 
