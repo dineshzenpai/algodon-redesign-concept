@@ -9,7 +9,7 @@ export function ProductCard({product, s}) {
 
   const price = Number(product.sale_price ?? product.price);
   const was = product.was ?? (product.sale_price != null && product.sale_price < product.price ? product.price : null);
-  const sizes = product.variants?.length ? product.variants.map(item => item.size) : ['S','M','L','XL'];
+  const sizes = (product.variants?.length ? product.variants.map(item => item.size) : ['S','M','L']).filter(size => size !== 'XL');
   const image = safeImageUrl(product.images?.[0]) || '/img/product-golden-brown.jpg';
 
   async function save() {
@@ -121,12 +121,11 @@ export function ProductDetailModal({s}) {
   const price = Number(product.sale_price ?? product.price);
   const was = product.was ?? (product.sale_price != null && product.sale_price < product.price ? product.price : null);
   const image = safeImageUrl(product.images?.[0]) || '/img/product-golden-brown.jpg';
-  const variants = product.variants || [
+  const variants = (product.variants || [
     { size: 'S', stock: 15, chest: '38"', length: '28.5"', sleeve: '24"' },
     { size: 'M', stock: 18, chest: '40"', length: '29.5"', sleeve: '24.5"' },
-    { size: 'L', stock: 12, chest: '42"', length: '30.5"', sleeve: '25"' },
-    { size: 'XL', stock: 10, chest: '44"', length: '31.5"', sleeve: '25.5"' }
-  ];
+    { size: 'L', stock: 12, chest: '42"', length: '30.5"', sleeve: '25"' }
+  ]).filter(v => v.size !== 'XL');
   const currentVariant = variants.find(v => v.size === selectedSize) || variants[0];
 
   function handleAddToCart() {

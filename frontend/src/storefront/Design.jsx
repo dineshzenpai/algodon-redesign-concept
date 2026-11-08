@@ -881,7 +881,6 @@ export function SizeGuide({s}) {
                 <tr><td>S</td><td>38</td><td>28.5</td><td>24</td><td>17.5</td></tr>
                 <tr><td>M</td><td>40</td><td>29.5</td><td>24.5</td><td>18.25</td></tr>
                 <tr><td>L</td><td>42</td><td>30.5</td><td>25</td><td>19</td></tr>
-                <tr><td>XL</td><td>44</td><td>31.5</td><td>25.5</td><td>19.75</td></tr>
               </tbody>
             </table>
           </div>
@@ -895,7 +894,7 @@ export function Hero({s}) {
   return (
     <>
       <div className="hero">
-        <img src="/img/hero.jpg" alt="Man in a golden-brown swirl print organic cotton shirt leaning on a railing by the sea" />
+        <img src="/img/hero.jpg" alt="Algodon Organic handcrafted pure cotton shirt" />
         <span className="hero-tag">100% Organic Cotton</span>
         <div className="hero-copy">
           <span className="eyebrow">Hand block-print motifs · Coconut shell buttons</span>

@@ -31,12 +31,12 @@ const fallbackProducts = [
     brand: 'Algodon Organic',
     price: 1900,
     sale_price: 1900,
-    stock_count: 55,
+    stock_count: 45,
     low_stock_threshold: 5,
     published: true,
     category_id: 'c1000000-0000-4000-8000-000000000001',
     images: ['/img/product-golden-brown.jpg'],
-    variants: [{ size: 'S', stock: 15 }, { size: 'M', stock: 18 }, { size: 'L', stock: 12 }, { size: 'XL', stock: 10 }]
+    variants: [{ size: 'S', stock: 15 }, { size: 'M', stock: 18 }, { size: 'L', stock: 12 }]
   },
   {
     id: 'a0000000-0000-4000-8000-000000000002',
@@ -46,12 +46,12 @@ const fallbackProducts = [
     brand: 'Algodon Organic',
     price: 1900,
     sale_price: 1900,
-    stock_count: 48,
+    stock_count: 39,
     low_stock_threshold: 5,
     published: true,
     category_id: 'c1000000-0000-4000-8000-000000000002',
     images: ['/img/product-jali.jpg'],
-    variants: [{ size: 'S', stock: 12 }, { size: 'M', stock: 16 }, { size: 'L', stock: 11 }, { size: 'XL', stock: 9 }]
+    variants: [{ size: 'S', stock: 12 }, { size: 'M', stock: 16 }, { size: 'L', stock: 11 }]
   },
   {
     id: 'a0000000-0000-4000-8000-000000000003',
@@ -61,12 +61,12 @@ const fallbackProducts = [
     brand: 'Algodon Organic',
     price: 1900,
     sale_price: 1900,
-    stock_count: 42,
+    stock_count: 34,
     low_stock_threshold: 5,
     published: true,
     category_id: 'c1000000-0000-4000-8000-000000000003',
     images: ['/img/product-pakshee.jpg'],
-    variants: [{ size: 'S', stock: 10 }, { size: 'M', stock: 14 }, { size: 'L', stock: 10 }, { size: 'XL', stock: 8 }]
+    variants: [{ size: 'S', stock: 10 }, { size: 'M', stock: 14 }, { size: 'L', stock: 10 }]
   },
   {
     id: 'a0000000-0000-4000-8000-000000000004',
@@ -76,12 +76,12 @@ const fallbackProducts = [
     brand: 'Algodon Organic',
     price: 1900,
     sale_price: 1900,
-    stock_count: 36,
+    stock_count: 30,
     low_stock_threshold: 10,
     published: true,
     category_id: 'c1000000-0000-4000-8000-000000000003',
     images: ['/img/product-kamal.jpg'],
-    variants: [{ size: 'S', stock: 8 }, { size: 'M', stock: 12 }, { size: 'L', stock: 10 }, { size: 'XL', stock: 6 }]
+    variants: [{ size: 'S', stock: 8 }, { size: 'M', stock: 12 }, { size: 'L', stock: 10 }]
   }
 ];
 
@@ -167,7 +167,7 @@ let fallbackOrders = [
       pin: '411001'
     },
     items: [
-      { name: 'Rangeen Pakshee', size: 'XL', qty: 1, price: 1900 }
+      { name: 'Rangeen Pakshee', size: 'L', qty: 1, price: 1900 }
     ],
     internal_notes: 'Delivered successfully and signed by customer.'
   }

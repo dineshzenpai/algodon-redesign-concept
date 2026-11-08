@@ -37,8 +37,7 @@ export const initialProducts = [
     variants: [
       { size: 'S', stock: 15, chest: '38"', length: '28.5"', sleeve: '24"' },
       { size: 'M', stock: 18, chest: '40"', length: '29.5"', sleeve: '24.5"' },
-      { size: 'L', stock: 12, chest: '42"', length: '30.5"', sleeve: '25"' },
-      { size: 'XL', stock: 10, chest: '44"', length: '31.5"', sleeve: '25.5"' }
+      { size: 'L', stock: 12, chest: '42"', length: '30.5"', sleeve: '25"' }
     ],
     reviews: [
       { name: 'Arvind R.', location: 'Mumbai', stars: 5, date: '2 weeks ago', text: 'The organic cotton feels so light and breathable! The coconut buttons and Cuban collar give it a standout summer aesthetic.' },
@@ -83,8 +82,7 @@ export const initialProducts = [
     variants: [
       { size: 'S', stock: 12, chest: '38"', length: '28.5"', sleeve: '24"' },
       { size: 'M', stock: 16, chest: '40"', length: '29.5"', sleeve: '24.5"' },
-      { size: 'L', stock: 11, chest: '42"', length: '30.5"', sleeve: '25"' },
-      { size: 'XL', stock: 9, chest: '44"', length: '31.5"', sleeve: '25.5"' }
+      { size: 'L', stock: 11, chest: '42"', length: '30.5"', sleeve: '25"' }
     ],
     reviews: [
       { name: 'Karthik N.', location: 'Hyderabad', stars: 5, date: '3 weeks ago', text: 'The rose tone is subtle and elegant. Cotton is incredibly soft against the skin, feels premium.' },
@@ -129,8 +127,7 @@ export const initialProducts = [
     variants: [
       { size: 'S', stock: 10, chest: '38"', length: '28.5"', sleeve: '24"' },
       { size: 'M', stock: 14, chest: '40"', length: '29.5"', sleeve: '24.5"' },
-      { size: 'L', stock: 10, chest: '42"', length: '30.5"', sleeve: '25"' },
-      { size: 'XL', stock: 8, chest: '44"', length: '31.5"', sleeve: '25.5"' }
+      { size: 'L', stock: 10, chest: '42"', length: '30.5"', sleeve: '25"' }
     ],
     reviews: [
       { name: 'Rohan P.', location: 'Chennai', stars: 5, date: '10 days ago', text: 'The birds are beautifully stamped. You can tell real hand craftsmanship was involved.' },
@@ -175,8 +172,7 @@ export const initialProducts = [
     variants: [
       { size: 'S', stock: 8, chest: '38"', length: '28.5"', sleeve: '24"' },
       { size: 'M', stock: 12, chest: '40"', length: '29.5"', sleeve: '24.5"' },
-      { size: 'L', stock: 10, chest: '42"', length: '30.5"', sleeve: '25"' },
-      { size: 'XL', stock: 6, chest: '44"', length: '31.5"', sleeve: '25.5"' }
+      { size: 'L', stock: 10, chest: '42"', length: '30.5"', sleeve: '25"' }
     ],
     reviews: [
       { name: 'Devendra T.', location: 'Jaipur', stars: 5, date: '1 week ago', text: 'Truly authentic Dabu resist print. The sepia earth tones are magnificent in person.' },
