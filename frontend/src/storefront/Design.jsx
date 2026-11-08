@@ -19,49 +19,51 @@ export function Header({s}) {
           ALGODON<span className="sub">ORGANIC</span>
         </a>
         <nav className="icons">
-          <button className="icon-btn" id="searchToggle" aria-label="Search" onClick={() => s.open("search")}>Search</button>
-          <div className="account-nav" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-            {s.isAdmin ? (
-              <button
-                type="button"
-                id="headerAdminLink"
-                className="btn btn-ghost"
-                onClick={() => s.open('admin')}
-                style={{
-                  padding: "6px 14px",
-                  fontSize: "0.82rem",
-                  borderColor: "var(--accent)",
-                  color: "var(--accent)",
-                  fontWeight: 700,
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "6px",
-                  cursor: "pointer",
-                  borderRadius: "6px",
-                  background: "rgba(196, 92, 60, 0.08)"
-                }}
-              >
-                ⚙ Admin Dashboard
+          {s.isAdmin ? (
+            <button
+              type="button"
+              id="headerAdminLink"
+              className="btn btn-ghost"
+              onClick={() => s.open('admin')}
+              style={{
+                padding: "6px 14px",
+                fontSize: "0.82rem",
+                borderColor: "var(--accent)",
+                color: "var(--accent)",
+                fontWeight: 700,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                cursor: "pointer",
+                borderRadius: "6px",
+                background: "rgba(196, 92, 60, 0.08)"
+              }}
+            >
+              ⚙ Admin Dashboard
+            </button>
+          ) : (
+            <>
+              <button className="icon-btn" id="searchToggle" aria-label="Search" onClick={() => s.open("search")}>Search</button>
+              <div className="account-nav" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                <button
+                  className="icon-btn"
+                  id="accountToggle"
+                  aria-label="Account"
+                  aria-haspopup="true"
+                  onClick={() => s.openAccount()}
+                  aria-expanded={s.accountMenu}
+                >
+                  <img id="accountAvatar" alt="" hidden />
+                  <span id="accountNavLabel">
+                    {s.user ? (s.user.user_metadata?.full_name?.split(" ")[0] || s.user.full_name?.split(" ")[0] || "Account") : "Sign In"}
+                  </span>
+                </button>
+              </div>
+              <button className="icon-btn" id="cartToggle" aria-label="Open cart" onClick={() => s.open("cart")}>
+                Cart<span id="cartCount">{s.cart.reduce((total, item) => total + item.qty, 0)}</span>
               </button>
-            ) : (
-              <button
-                className="icon-btn"
-                id="accountToggle"
-                aria-label="Account"
-                aria-haspopup="true"
-                onClick={() => s.openAccount()}
-                aria-expanded={s.accountMenu}
-              >
-                <img id="accountAvatar" alt="" hidden />
-                <span id="accountNavLabel">
-                  {s.user ? (s.user.user_metadata?.full_name?.split(" ")[0] || s.user.full_name?.split(" ")[0] || "Account") : "Sign In"}
-                </span>
-              </button>
-            )}
-          </div>
-          <button className="icon-btn" id="cartToggle" aria-label="Open cart" onClick={() => s.open("cart")}>
-            Cart<span id="cartCount">{s.cart.reduce((total, item) => total + item.qty, 0)}</span>
-          </button>
+            </>
+          )}
         </nav>
       </header>
     </>

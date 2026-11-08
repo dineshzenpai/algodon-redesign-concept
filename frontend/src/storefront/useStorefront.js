@@ -67,7 +67,12 @@ export function useStorefront() {
       history.pushState(null, '', '/');
     }
   }, []);
-  const open = useCallback(value => { setMenuOpen(false); setAccountMenu(false); setPanel(value); },[]);
+  const open = useCallback(value => {
+    if (isAdmin && value === 'cart') return;
+    setMenuOpen(false);
+    setAccountMenu(false);
+    setPanel(value);
+  }, [isAdmin]);
   const openAccount = () => {
     setGuest(false);
     setAuthMode('signin');

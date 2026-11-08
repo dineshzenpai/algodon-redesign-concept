@@ -26,7 +26,7 @@ export default function Storefront() {
       <div className="scrim" id="scrim" hidden={!s.menuOpen && s.panel !== 'cart'} onClick={s.close} />
       <div id="authToast" className="auth-toast" role="status" aria-live="polite" hidden={!s.toast}>{s.toast}</div>
       <Search s={s} />
-      <CartDrawer s={s} />
+      {!s.isAdmin && <CartDrawer s={s} />}
       <AccountDrawer s={s} />
       <SizeGuide s={s} />
       <HelpModal s={s} />
