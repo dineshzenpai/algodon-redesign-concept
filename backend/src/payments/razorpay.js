@@ -9,8 +9,8 @@ import { sendOrderBillNotification, sendRefundNotification } from '../lib/notifi
 export const razorpayRouter = Router();
 
 function getCredentials() {
-  const keyId = env.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || 'rzp_test_Txp0G2burc9MyT';
-  const keySecret = env.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || 'kGNrn7XRrIyCI0059NBvakwb';
+  const keyId = env.razorpay?.keyId || process.env.RAZORPAY_KEY_ID || '';
+  const keySecret = env.razorpay?.keySecret || process.env.RAZORPAY_KEY_SECRET || '';
   return { keyId, keySecret };
 }
 
@@ -19,12 +19,12 @@ let cachedKeyId = null;
 let cachedKeySecret = null;
 
 export function getRazorpayClient() {
+  if (cachedClient) {
+    return cachedClient;
+  }
   const { keyId, keySecret } = getCredentials();
   if (!keyId || !keySecret) {
     return null;
-  }
-  if (cachedClient && cachedKeyId === keyId && cachedKeySecret === keySecret) {
-    return cachedClient;
   }
   cachedClient = new Razorpay({
     key_id: keyId,
@@ -33,6 +33,10 @@ export function getRazorpayClient() {
   cachedKeyId = keyId;
   cachedKeySecret = keySecret;
   return cachedClient;
+}
+
+export function setRazorpayClient(client) {
+  cachedClient = client;
 }
 
 const createOrderSchema = z.object({
@@ -88,19 +92,6 @@ export async function handleCreateOrder(req, res) {
   } catch (error) {
     console.error('[razorpay] Create order error:', error);
     const isAuthError = error.statusCode === 401 || (error.error?.code === 'BAD_REQUEST_ERROR' && /auth/i.test(error.message || ''));
-    const isTestMode = keyId.startsWith('rzp_test_') || process.env.NODE_ENV === 'test';
-
-    if (isTestMode && isAuthError) {
-      console.warn('[razorpay] Test credentials not active with Razorpay API; falling back to simulated test order.');
-      const testOrderId = `order_test_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-      return res.status(200).json({
-        order_id: testOrderId,
-        amount: Math.round(amount),
-        currency: currency.toUpperCase(),
-        key_id: keyId,
-        simulated: true
-      });
-    }
 
     if (isAuthError) {
       return res.status(401).json({ error: 'Razorpay authentication failed.' });
@@ -134,16 +125,6 @@ export async function handleVerifyPayment(req, res) {
   }
 
   try {
-    // If order is a simulated test order or signature, accept for safe local/preview testing
-    if (orderId.startsWith('order_test_') || orderId.startsWith('order_sim_') || signature.startsWith('sig_test_')) {
-      return res.status(200).json({
-        success: true,
-        order_id: orderId,
-        payment_id: paymentId,
-        simulated: true
-      });
-    }
-
     // Algorithm: HMAC-SHA256(order_id + "|" + payment_id, KEY_SECRET)
     const expectedSignature = crypto
       .createHmac('sha256', keySecret)

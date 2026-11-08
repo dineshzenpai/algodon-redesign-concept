@@ -13,6 +13,26 @@ describe('Razorpay Standard Checkout backend endpoints', () => {
 
     const appModule = await import('../backend/src/app.js');
     const app = appModule.default;
+    const { setRazorpayClient } = await import('../backend/src/payments/razorpay.js');
+
+    setRazorpayClient({
+      orders: {
+        create: async (options) => ({
+          id: `order_unit_${Date.now()}`,
+          amount: options.amount,
+          currency: options.currency || 'INR',
+          status: 'created'
+        })
+      },
+      payments: {
+        refund: async (paymentId, options) => ({
+          id: `rfnd_unit_${Date.now()}`,
+          payment_id: paymentId,
+          amount: options.amount || 190000,
+          status: 'processed'
+        })
+      }
+    });
 
     await new Promise((resolve) => {
       server = app.listen(0, '127.0.0.1', () => {
