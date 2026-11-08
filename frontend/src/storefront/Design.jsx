@@ -21,17 +21,6 @@ export function Header({s}) {
         <nav className="icons">
           <button className="icon-btn" id="searchToggle" aria-label="Search" onClick={() => s.open("search")}>Search</button>
           <div className="account-nav">
-            {s.isAdmin && (
-              <button
-                type="button"
-                className="btn btn-ghost"
-                id="navAdminDashboardBtn"
-                style={{ padding: "5px 11px", fontSize: "0.75rem", borderColor: "var(--accent)", color: "var(--accent)", fontWeight: 700, marginRight: "8px", display: "inline-flex", alignItems: "center", gap: "5px" }}
-                onClick={() => s.open("admin")}
-              >
-                ⚙ Admin Dashboard
-              </button>
-            )}
             <button
               className="icon-btn"
               id="accountToggle"
@@ -42,7 +31,7 @@ export function Header({s}) {
             >
               <img id="accountAvatar" alt="" hidden />
               <span id="accountNavLabel">
-                {s.user ? (s.isAdmin ? "Admin ⚙" : (s.user.user_metadata?.full_name?.split(" ")[0] || "Profile")) : "Sign In"}
+                {s.user ? (s.user.user_metadata?.full_name?.split(" ")[0] || s.user.full_name?.split(" ")[0] || "Account") : "Sign In"}
               </span>
             </button>
           </div>
@@ -608,71 +597,19 @@ export function AccountDrawer({s}) {
               </div>
             )}
 
-            {/* 2. SIGNED IN VIEW */}
+            {/* 2. SIGNED IN CUSTOMER VIEW */}
             {s.user && (
               <div className="account-body" id="accountSignedIn" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
-                {/* 2A. ADMIN DASHBOARD ACCESS CARD */}
-                {s.isAdmin ? (
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-                      <div>
-                        <span style={{ background: "var(--accent)", color: "#fff", fontSize: "0.7rem", fontWeight: 700, padding: "3px 8px", borderRadius: "4px", textTransform: "uppercase" }}>
-                          Super Admin
-                        </span>
-                        <h3 style={{ margin: "6px 0 2px", fontFamily: "'Fraunces', serif", fontSize: "1.6rem", fontWeight: 400 }}>Store Administration</h3>
-                        <p style={{ margin: 0, fontSize: "0.82rem", color: "var(--ink-soft)" }}>Signed in as {s.user.email}</p>
-                      </div>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "16px" }}>
+                    <div>
+                      <span className="eyebrow" style={{ color: "var(--accent)" }}>Customer Profile</span>
+                      <h3 style={{ margin: "2px 0 0", fontFamily: "'Fraunces', serif", fontSize: "1.5rem" }}>
+                        {s.user.user_metadata?.full_name || s.user.full_name || 'Welcome!'}
+                      </h3>
+                      <p style={{ margin: "2px 0 0", fontSize: "0.8rem", color: "var(--ink-soft)" }}>{s.user.email || s.user.phone}</p>
                     </div>
-
-                    <div style={{ background: "var(--card)", border: "1px solid var(--accent)", borderRadius: "8px", padding: "18px 20px", marginBottom: "20px" }}>
-                      <p style={{ margin: "0 0 14px", fontSize: "0.85rem", color: "var(--ink)", lineHeight: 1.5 }}>
-                        You have full administrative privileges to manage products, categories, customer orders, coupons, and live store metrics.
-                      </p>
-                      <button
-                        type="button"
-                        className="btn btn-solid"
-                        style={{ width: "100%", justifyContent: "center", padding: "14px", fontSize: "0.95rem" }}
-                        onClick={() => s.open('admin')}
-                      >
-                        Open Store Admin Dashboard ⚙
-                      </button>
-                    </div>
-
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginBottom: "24px" }}>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        style={{ padding: "12px", justifyContent: "center", fontSize: "0.82rem" }}
-                        onClick={() => s.open('admin')}
-                      >
-                        📦 Catalog & Inventory
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        style={{ padding: "12px", justifyContent: "center", fontSize: "0.82rem" }}
-                        onClick={() => s.open('admin')}
-                      >
-                        🏷️ Promo Coupons
-                      </button>
-                    </div>
-
-                    <button type="button" className="btn btn-ghost" id="signOutBtn" style={{ width: "100%", justifyContent: "center", color: "var(--accent)" }} onClick={s.signOut}>
-                      Sign Out of Administration
-                    </button>
                   </div>
-                ) : (
-                  /* 2B. CUSTOMER PROFILE PAGE */
-                  <div>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "16px" }}>
-                      <div>
-                        <span className="eyebrow" style={{ color: "var(--accent)" }}>Customer Profile</span>
-                        <h3 style={{ margin: "2px 0 0", fontFamily: "'Fraunces', serif", fontSize: "1.5rem" }}>
-                          {s.user.user_metadata?.full_name || s.user.full_name || 'Welcome!'}
-                        </h3>
-                        <p style={{ margin: "2px 0 0", fontSize: "0.8rem", color: "var(--ink-soft)" }}>{s.user.email || s.user.phone}</p>
-                      </div>
-                    </div>
 
                     {/* Sub Navigation */}
                     <div style={{ display: "flex", gap: "8px", borderBottom: "1px solid var(--line)", marginBottom: "16px" }}>
@@ -755,7 +692,6 @@ export function AccountDrawer({s}) {
                       Sign Out
                     </button>
                   </div>
-                )}
               </div>
             )}
           </div>
