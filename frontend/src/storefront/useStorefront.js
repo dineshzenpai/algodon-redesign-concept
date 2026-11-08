@@ -203,7 +203,13 @@ export function useStorefront() {
 
   const checkAdminStatus = useCallback(async () => {
     try {
-      const res = await request('/api/admin/me', { headers: { 'X-Admin-Request': '1' } });
+      let adminToken = '';
+      try { adminToken = localStorage.getItem('algodon_admin_token') || ''; } catch {}
+      const headers = {
+        'X-Admin-Request': '1',
+        ...(adminToken ? { 'X-Admin-Session': adminToken } : {})
+      };
+      const res = await request('/api/admin/me', { headers });
       if (res?.user?.role) {
         setIsAdmin(true);
         setAdminRole(res.user.role);
@@ -263,11 +269,15 @@ export function useStorefront() {
         if (result.session?.access_token) {
           try { localStorage.setItem('algodon_admin_token', result.session.access_token); } catch {}
         }
-        notify(`Welcome! Store Admin authenticated. Redirecting to Admin Dashboard…`);
-        if (typeof window !== 'undefined') {
-          window.location.href = '/admin';
-          return;
-        }
+        setIsAdmin(true);
+        setAdminRole(result.role || 'super_admin');
+        const adminUser = { ...(result.user || {}), isAdmin: true, role: result.role || 'super_admin' };
+        setUser(adminUser);
+        writeStorage('algodon_customer_user', adminUser);
+        setGuest(false);
+        setPanel('admin');
+        notify('Store Administrator verified. Access granted.');
+        return;
       }
       setUser(loggedUser);
       writeStorage('algodon_customer_user', loggedUser);
@@ -476,11 +486,13 @@ export function useStorefront() {
   async function signOut() {
     try {
       if (user) await accountFetch('/api/auth/logout',{method:'POST'}).catch(error => { if(error.status !== 401) throw error; });
+      try { await request('/api/admin/auth/logout', { method: 'POST', headers: { 'X-Admin-Request': '1' } }).catch(() => {}); } catch {}
       await client?.auth.signOut({scope:'local'});
       setIsAdmin(false);
       setAdminRole(null);
       setUser(null);
       setCustomerToken('');
+      try { localStorage.removeItem('algodon_admin_token'); } catch {}
       writeStorage('algodon_customer_token', null);
       writeStorage('algodon_customer_user', null);
       setGuest(false);

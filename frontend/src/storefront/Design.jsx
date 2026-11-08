@@ -22,31 +22,33 @@ export function Header({s}) {
           <button className="icon-btn" id="searchToggle" aria-label="Search" onClick={() => s.open("search")}>Search</button>
           <div className="account-nav" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
             {s.isAdmin && (
-              <a
-                href="/admin"
+              <button
+                type="button"
                 id="headerAdminLink"
                 className="btn btn-ghost"
+                onClick={() => s.open('admin')}
                 style={{
                   padding: "5px 11px",
                   fontSize: "0.75rem",
                   borderColor: "var(--accent)",
                   color: "var(--accent)",
                   fontWeight: 700,
-                  textDecoration: "none",
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "4px"
+                  gap: "4px",
+                  cursor: "pointer",
+                  background: "transparent"
                 }}
               >
                 ⚙ Admin Dashboard
-              </a>
+              </button>
             )}
             <button
               className="icon-btn"
               id="accountToggle"
               aria-label="Account"
               aria-haspopup="true"
-              onClick={() => s.isAdmin ? (window.location.href = '/admin') : s.openAccount()}
+              onClick={() => s.isAdmin ? s.open('admin') : s.openAccount()}
               aria-expanded={s.accountMenu}
             >
               <img id="accountAvatar" alt="" hidden />
@@ -551,11 +553,8 @@ export function AccountDrawer({s}) {
                   </button>
                 </div>
 
-                <div style={{ textAlign: "center", marginTop: "14px", padding: "10px", background: "rgba(196, 92, 60, 0.08)", borderRadius: "6px", fontSize: "0.82rem" }}>
-                  <span style={{ color: "#a0978d" }}>Store Administrator? </span>
-                  <a href="/admin" id="signInAdminLink" style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 700 }}>
-                    Open Admin Dashboard (/admin) →
-                  </a>
+                <div style={{ textAlign: "center", marginTop: "14px", padding: "10px", background: "rgba(196, 92, 60, 0.08)", borderRadius: "6px", fontSize: "0.82rem", color: "#a0978d" }}>
+                  Store Administrator? Sign in with your admin credentials above to open the Admin Dashboard directly.
                 </div>
               </div>
             )}
@@ -636,14 +635,15 @@ export function AccountDrawer({s}) {
                       <p style={{ margin: "0 0 12px", fontSize: "0.82rem", color: "var(--ink)" }}>
                         You are logged in as Store Admin ({s.user.email}).
                       </p>
-                      <a
-                        href="/admin"
+                      <button
+                        type="button"
                         id="launchAdminDashboardTopBtn"
                         className="btn btn-solid"
-                        style={{ width: "100%", justifyContent: "center", textDecoration: "none", padding: "12px", fontSize: "0.9rem", fontWeight: 700 }}
+                        onClick={() => s.open('admin')}
+                        style={{ width: "100%", justifyContent: "center", padding: "12px", fontSize: "0.9rem", fontWeight: 700, cursor: "pointer" }}
                       >
-                        Open Store Admin Dashboard (/admin) →
-                      </a>
+                        Open Store Admin Dashboard →
+                      </button>
                     </div>
                   )}
 
@@ -742,14 +742,15 @@ export function AccountDrawer({s}) {
                         <p style={{ margin: "0 0 10px", fontSize: "0.78rem", color: "var(--ink-soft)" }}>
                           Signed in with authorized admin account ({s.user.email}).
                         </p>
-                        <a
-                          href="/admin"
+                        <button
+                          type="button"
                           id="drawerAdminLink"
                           className="btn btn-solid"
-                          style={{ width: "100%", justifyContent: "center", textDecoration: "none", padding: "10px", fontSize: "0.85rem" }}
+                          onClick={() => s.open('admin')}
+                          style={{ width: "100%", justifyContent: "center", padding: "10px", fontSize: "0.85rem", cursor: "pointer" }}
                         >
                           Launch Store Admin Dashboard →
-                        </a>
+                        </button>
                       </div>
                     )}
 
@@ -1011,7 +1012,7 @@ export function Footer({s}) {
         <div className="footer-bottom">
           <span>© Algodon Organic · 100% GOTS Certified Cotton</span>
           <span>Free Pan-India Delivery · Hand block-printed in Rajasthan</span>
-          <span><a href="/admin" id="footerAdminLink" style={{ color: "var(--ink-soft)", textDecoration: "none", fontSize: "0.78rem" }}>Admin Portal ↗</a></span>
+          <span><button type="button" onClick={() => s.isAdmin ? s.open('admin') : s.openAccount()} id="footerAdminLink" style={{ background: "transparent", border: "none", color: "var(--ink-soft)", textDecoration: "none", fontSize: "0.78rem", cursor: "pointer" }}>Admin Portal ↗</button></span>
         </div>
       </footer>
     </>

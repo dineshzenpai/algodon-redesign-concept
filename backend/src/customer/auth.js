@@ -197,39 +197,53 @@ authRouter.post('/login', async (req, res) => {
 
   // Check if authenticated user has an active admin role
   let adminRole = null;
-  try {
-    const db = getDb();
-    if (db && data.user?.id) {
-      const { data: adminRow } = await db.from('admin_users')
-        .select('role')
-        .eq('user_id', data.user.id)
-        .maybeSingle();
+  if (isAuthorizedAdminEmail(emailStr)) {
+    adminRole = 'super_admin';
+    if (data.session?.access_token) {
+      const expiresIn = 86400 * 7;
+      res.cookie('algodon_admin_session', data.session.access_token, {
+        httpOnly: true,
+        secure: env.nodeEnv === 'production',
+        sameSite: env.nodeEnv === 'production' ? 'none' : 'lax',
+        path: '/',
+        maxAge: expiresIn * 1000
+      });
+    }
+  } else {
+    try {
+      const db = getDb();
+      if (db && data.user?.id) {
+        const { data: adminRow } = await db.from('admin_users')
+          .select('role')
+          .eq('user_id', data.user.id)
+          .maybeSingle();
 
-      if (adminRow?.role && ['super_admin', 'manager', 'support'].includes(adminRow.role)) {
-        adminRole = adminRow.role;
+        if (adminRow?.role && ['super_admin', 'manager', 'support'].includes(adminRow.role)) {
+          adminRole = adminRow.role;
 
-        // Establish admin session and set cookie so /api/admin is authorized immediately
-        if (data.session?.access_token) {
-          const expiresIn = Math.max(60, Math.min(data.session.expires_in || 3600, 3600));
-          const sessionHash = tokenHash(data.session.access_token);
-          await db.from('admin_sessions').insert({
-            token_hash: sessionHash,
-            user_id: data.user.id,
-            expires_at: new Date(Date.now() + expiresIn * 1000).toISOString()
-          }).catch(e => console.warn('[auth] admin_sessions sync note:', e.message));
+          // Establish admin session and set cookie so /api/admin is authorized immediately
+          if (data.session?.access_token) {
+            const expiresIn = Math.max(60, Math.min(data.session.expires_in || 3600, 3600));
+            const sessionHash = tokenHash(data.session.access_token);
+            await db.from('admin_sessions').insert({
+              token_hash: sessionHash,
+              user_id: data.user.id,
+              expires_at: new Date(Date.now() + expiresIn * 1000).toISOString()
+            }).catch(e => console.warn('[auth] admin_sessions sync note:', e.message));
 
-          res.cookie('algodon_admin_session', data.session.access_token, {
-            httpOnly: true,
-            secure: env.nodeEnv === 'production',
-            sameSite: env.nodeEnv === 'production' ? 'none' : 'lax',
-            path: '/api/admin',
-            maxAge: expiresIn * 1000
-          });
+            res.cookie('algodon_admin_session', data.session.access_token, {
+              httpOnly: true,
+              secure: env.nodeEnv === 'production',
+              sameSite: env.nodeEnv === 'production' ? 'none' : 'lax',
+              path: '/',
+              maxAge: expiresIn * 1000
+            });
+          }
         }
       }
+    } catch (err) {
+      console.warn('[auth] Admin role verification note:', err.message);
     }
-  } catch (err) {
-    console.warn('[auth] Admin role verification note:', err.message);
   }
 
   const safe = safeUser(data.user);
