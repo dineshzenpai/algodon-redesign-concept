@@ -579,9 +579,9 @@ export function useStorefront() {
           const verifyRes = await request('/api/verify-payment', {
             method: 'POST',
             body: JSON.stringify({
-              razorpay_order_id: response.razorpay_order_id,
+              razorpay_order_id: response.razorpay_order_id || orderRes.order_id,
               razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature
+              razorpay_signature: response.razorpay_signature || 'sig_test_' + Date.now()
             })
           });
 
@@ -647,77 +647,45 @@ export function useStorefront() {
         }
       };
 
-      // If in simulated test mode, allow direct simulated transaction completion
-      if (orderRes.simulated) {
-        const proceed = window.confirm(
-          `Razorpay Test Mode: Confirm Test Payment?\n\nAmount: Rs. ${total.toLocaleString('en-IN')}\nOrder ID: ${orderRes.order_id}\n\nClick OK to complete the test payment, generate your Tax Invoice, and test the full store flow.`
-        );
-        if (!proceed) {
-          setBusy('');
-          setCartNote('Test payment cancelled.');
-          notify('Test payment was cancelled.');
-          return;
-        }
+      const options = {
+        key: razorpayKey,
+        amount: orderRes.amount,
+        currency: orderRes.currency || 'INR',
+        name: 'Algodon Organic',
+        description: '100% Organic Hand Block-Print Shirts',
+        image: '/img/favicon.svg',
+        prefill: {
+          name: address.name || user?.user_metadata?.full_name || '',
+          email: address.email || user?.email || '',
+          contact: address.phone || ''
+        },
+        theme: {
+          color: '#c45c3c'
+        },
+        modal: {
+          ondismiss: () => {
+            setBusy('');
+            setCartNote('Payment cancelled. Your cart items are preserved.');
+            notify('Checkout modal closed.');
+          }
+        },
+        handler: handleSuccessfulPayment
+      };
 
-        await handleSuccessfulPayment({
-          razorpay_order_id: orderRes.order_id,
-          razorpay_payment_id: `pay_test_${Date.now()}`,
-          razorpay_signature: `sig_test_${Date.now()}`
-        });
-        return;
+      if (orderRes.order_id && !orderRes.simulated) {
+        options.order_id = orderRes.order_id;
       }
 
-      try {
-        const razorpay = new window.Razorpay({
-          key: razorpayKey,
-          amount: orderRes.amount,
-          currency: orderRes.currency || 'INR',
-          name: 'Algodon Organic',
-          description: '100% Organic Hand Block-Print Shirts',
-          image: '/img/favicon.svg',
-          order_id: orderRes.order_id,
-          prefill: {
-            name: address.name || user?.user_metadata?.full_name || '',
-            email: address.email || user?.email || '',
-            contact: address.phone || ''
-          },
-          theme: {
-            color: '#c45c3c'
-          },
-          modal: {
-            ondismiss: () => {
-              setBusy('');
-              setCartNote('Payment cancelled. Your cart items are preserved.');
-              notify('Checkout modal closed.');
-            }
-          },
-          handler: handleSuccessfulPayment
-        });
+      const razorpay = new window.Razorpay(options);
 
-        razorpay.on('payment.failed', (failResp) => {
-          setBusy('');
-          const reason = failResp?.error?.description || failResp?.error?.reason || 'Payment failed';
-          setCartNote(`Payment failed: ${reason}`);
-          notify(`Payment failed: ${reason}`, true);
-        });
+      razorpay.on('payment.failed', (failResp) => {
+        setBusy('');
+        const reason = failResp?.error?.description || failResp?.error?.reason || 'Payment failed';
+        setCartNote(`Payment failed: ${reason}`);
+        notify(`Payment failed: ${reason}`, true);
+      });
 
-        razorpay.open();
-      } catch (sdkErr) {
-        console.warn('[checkout] Razorpay SDK open warning:', sdkErr);
-        const proceedSim = window.confirm(
-          `Razorpay Test Mode:\n\nCould not initialize live modal (${sdkErr.message}).\n\nClick OK to complete test payment simulation and generate your invoice.`
-        );
-        if (proceedSim) {
-          await handleSuccessfulPayment({
-            razorpay_order_id: orderRes.order_id,
-            razorpay_payment_id: `pay_test_${Date.now()}`,
-            razorpay_signature: `sig_test_${Date.now()}`
-          });
-        } else {
-          setBusy('');
-          setCartNote('Checkout cancelled.');
-        }
-      }
+      razorpay.open();
     } catch (error) {
       setCartNote(error.message || 'Failed to initiate checkout.');
       notify(error.message || 'Failed to initiate checkout.', true);
@@ -744,33 +712,15 @@ export function useStorefront() {
 
       if (!orderRes?.order_id) throw new Error(orderRes?.error || 'Failed to create test order.');
 
-      if (orderRes.simulated) {
-        setCartNote('Simulating test payment verification…');
-        const verifyRes = await request('/api/verify-payment', {
-          method: 'POST',
-          body: JSON.stringify({
-            razorpay_order_id: orderRes.order_id,
-            razorpay_payment_id: `pay_test_${Date.now()}`,
-            razorpay_signature: `sig_test_${Date.now()}`
-          })
-        });
-        if (!verifyRes?.success) throw new Error(verifyRes?.error || 'Signature mismatch');
-        setCartNote(`Test payment verified! Payment ID: ${verifyRes.payment_id}`);
-        notify(`Test payment verified! ID: ${verifyRes.payment_id}`);
-        setBusy('');
-        return;
-      }
-
       const razorpayKey = import.meta.env?.VITE_RAZORPAY_KEY_ID || orderRes.key_id || window.APP_CONFIG?.RAZORPAY_KEY_ID || 'rzp_test_TwvLKjX2XuZDFi';
 
-      const razorpay = new window.Razorpay({
+      const options = {
         key: razorpayKey,
         amount: orderRes.amount,
         currency: orderRes.currency || 'INR',
         name: 'Algodon Organic',
         description: '100% Organic Hand Block-Print Shirts',
         image: '/img/favicon.svg',
-        order_id: orderRes.order_id,
         prefill: {
           name: address.name || user?.user_metadata?.full_name || 'Algodon Customer',
           email: address.email || user?.email || 'customer@algodonfashion.com',
@@ -790,9 +740,9 @@ export function useStorefront() {
             const verifyRes = await request('/api/verify-payment', {
               method: 'POST',
               body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
+                razorpay_order_id: response.razorpay_order_id || orderRes.order_id,
                 razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature
+                razorpay_signature: response.razorpay_signature || 'sig_test_' + Date.now()
               })
             });
 
@@ -806,15 +756,19 @@ export function useStorefront() {
             setBusy('');
           }
         }
-      });
+      };
 
+      if (orderRes.order_id && !orderRes.simulated) {
+        options.order_id = orderRes.order_id;
+      }
+
+      const razorpay = new window.Razorpay(options);
       razorpay.on('payment.failed', (failResp) => {
         setBusy('');
         const reason = failResp?.error?.description || 'Payment failed';
         setCartNote(`Payment failed: ${reason}`);
         notify(`Payment failed: ${reason}`, true);
       });
-
       razorpay.open();
     } catch (error) {
       setCartNote(error.message);
