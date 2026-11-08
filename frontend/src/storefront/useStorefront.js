@@ -259,18 +259,24 @@ export function useStorefront() {
         setCustomerToken(result.session.access_token);
         writeStorage('algodon_customer_token', result.session.access_token);
       }
+      if (result.isAdmin) {
+        if (result.session?.access_token) {
+          try { localStorage.setItem('algodon_admin_token', result.session.access_token); } catch {}
+        }
+        notify(`Welcome! Store Admin authenticated. Redirecting to Admin Dashboard…`);
+        if (typeof window !== 'undefined') {
+          window.location.href = '/admin';
+          return;
+        }
+      }
       setUser(loggedUser);
       writeStorage('algodon_customer_user', loggedUser);
-      setIsAdmin(Boolean(result.isAdmin));
-      setAdminRole(result.role || null);
+      setIsAdmin(false);
+      setAdminRole(null);
       setGuest(false);
       setPanel('account');
       setAccountView('profile');
-      if (result.isAdmin) {
-        notify(`Welcome! Store Admin access unlocked (${result.role?.replace('_', ' ') || 'admin'}).`);
-      } else {
-        notify(`Welcome, ${loggedUser.user_metadata?.full_name?.split(' ')[0] || loggedUser.full_name?.split(' ')[0] || loggedUser.email || 'Customer'}!`);
-      }
+      notify(`Welcome, ${loggedUser.user_metadata?.full_name?.split(' ')[0] || loggedUser.full_name?.split(' ')[0] || loggedUser.email || 'Customer'}!`);
     } catch(error) {
       setAuthError(error.message);
     }

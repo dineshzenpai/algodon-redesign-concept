@@ -46,7 +46,7 @@ export function Header({s}) {
               id="accountToggle"
               aria-label="Account"
               aria-haspopup="true"
-              onClick={() => s.openAccount()}
+              onClick={() => s.isAdmin ? (window.location.href = '/admin') : s.openAccount()}
               aria-expanded={s.accountMenu}
             >
               <img id="accountAvatar" alt="" hidden />
@@ -550,6 +550,13 @@ export function AccountDrawer({s}) {
                     Checking out? Enter shipping address & contact phone →
                   </button>
                 </div>
+
+                <div style={{ textAlign: "center", marginTop: "14px", padding: "10px", background: "rgba(196, 92, 60, 0.08)", borderRadius: "6px", fontSize: "0.82rem" }}>
+                  <span style={{ color: "#a0978d" }}>Store Administrator? </span>
+                  <a href="/admin" id="signInAdminLink" style={{ color: "var(--accent)", textDecoration: "none", fontWeight: 700 }}>
+                    Open Admin Dashboard (/admin) →
+                  </a>
+                </div>
               </div>
             )}
 
@@ -621,6 +628,25 @@ export function AccountDrawer({s}) {
             {s.user && (
               <div className="account-body" id="accountSignedIn" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
                 <div>
+                  {s.isAdmin && (
+                    <div style={{ background: "rgba(196, 92, 60, 0.12)", border: "2px solid var(--accent)", borderRadius: "8px", padding: "16px", marginBottom: "16px", textAlign: "center" }}>
+                      <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "var(--accent)", marginBottom: "4px" }}>
+                        ⚙ Store Administrator
+                      </div>
+                      <p style={{ margin: "0 0 12px", fontSize: "0.82rem", color: "var(--ink)" }}>
+                        You are logged in as Store Admin ({s.user.email}).
+                      </p>
+                      <a
+                        href="/admin"
+                        id="launchAdminDashboardTopBtn"
+                        className="btn btn-solid"
+                        style={{ width: "100%", justifyContent: "center", textDecoration: "none", padding: "12px", fontSize: "0.9rem", fontWeight: 700 }}
+                      >
+                        Open Store Admin Dashboard (/admin) →
+                      </a>
+                    </div>
+                  )}
+
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: "16px" }}>
                     <div>
                       <span className="eyebrow" style={{ color: "var(--accent)" }}>Customer Profile</span>
