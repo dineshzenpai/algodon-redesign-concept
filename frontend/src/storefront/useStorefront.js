@@ -510,6 +510,10 @@ export function useStorefront() {
       setGuest(false);
       setCart([]);
       close();
+      if (typeof window !== 'undefined' && location.pathname !== '/') {
+        history.pushState(null, '', '/');
+      }
+      notify('Signed out successfully.');
     } catch(error) { notify(error.message); }
   }
   function showShipping() { setGuest(!user); setAccountView('shipping'); open('account'); }

@@ -757,7 +757,7 @@
 .modal-image-side {
   flex: 1.1;
   display: none;
-  background: url('/img/hero.jpg') center/cover no-repeat;
+  background: url('/img/hero.jpg?v=2') center/cover no-repeat;
   min-height: 520px;
 }
 @media (min-width: 768px) {

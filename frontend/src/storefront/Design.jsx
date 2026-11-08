@@ -21,41 +21,43 @@ export function Header({s}) {
         <nav className="icons">
           <button className="icon-btn" id="searchToggle" aria-label="Search" onClick={() => s.open("search")}>Search</button>
           <div className="account-nav" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
-            {s.isAdmin && (
+            {s.isAdmin ? (
               <button
                 type="button"
                 id="headerAdminLink"
                 className="btn btn-ghost"
                 onClick={() => s.open('admin')}
                 style={{
-                  padding: "5px 11px",
-                  fontSize: "0.75rem",
+                  padding: "6px 14px",
+                  fontSize: "0.82rem",
                   borderColor: "var(--accent)",
                   color: "var(--accent)",
                   fontWeight: 700,
                   display: "inline-flex",
                   alignItems: "center",
-                  gap: "4px",
+                  gap: "6px",
                   cursor: "pointer",
-                  background: "transparent"
+                  borderRadius: "6px",
+                  background: "rgba(196, 92, 60, 0.08)"
                 }}
               >
                 ⚙ Admin Dashboard
               </button>
+            ) : (
+              <button
+                className="icon-btn"
+                id="accountToggle"
+                aria-label="Account"
+                aria-haspopup="true"
+                onClick={() => s.openAccount()}
+                aria-expanded={s.accountMenu}
+              >
+                <img id="accountAvatar" alt="" hidden />
+                <span id="accountNavLabel">
+                  {s.user ? (s.user.user_metadata?.full_name?.split(" ")[0] || s.user.full_name?.split(" ")[0] || "Account") : "Sign In"}
+                </span>
+              </button>
             )}
-            <button
-              className="icon-btn"
-              id="accountToggle"
-              aria-label="Account"
-              aria-haspopup="true"
-              onClick={() => s.isAdmin ? s.open('admin') : s.openAccount()}
-              aria-expanded={s.accountMenu}
-            >
-              <img id="accountAvatar" alt="" hidden />
-              <span id="accountNavLabel">
-                {s.user ? (s.isAdmin ? "Admin ⚙" : (s.user.user_metadata?.full_name?.split(" ")[0] || s.user.full_name?.split(" ")[0] || "Account")) : "Sign In"}
-              </span>
-            </button>
           </div>
           <button className="icon-btn" id="cartToggle" aria-label="Open cart" onClick={() => s.open("cart")}>
             Cart<span id="cartCount">{s.cart.reduce((total, item) => total + item.qty, 0)}</span>
@@ -213,7 +215,7 @@ export function AccountDrawer({s}) {
             style={{
               flex: 1.1,
               minHeight: "560px",
-              background: "url('/img/hero.jpg') center/cover no-repeat",
+              background: "url('/img/hero.jpg?v=2') center/cover no-repeat",
               position: "relative",
               display: "flex",
               flexDirection: "column",
@@ -894,7 +896,7 @@ export function Hero({s}) {
   return (
     <>
       <div className="hero">
-        <img src="/img/hero.jpg" alt="Algodon Organic handcrafted pure cotton shirt" />
+        <img src="/img/hero.jpg?v=2" alt="Algodon Organic handcrafted pure cotton shirt" />
         <span className="hero-tag">100% Organic Cotton</span>
         <div className="hero-copy">
           <span className="eyebrow">Hand block-print motifs · Coconut shell buttons</span>

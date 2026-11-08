@@ -5,9 +5,10 @@ import { Button, Modal } from './ui.jsx';
 import { Dashboard } from './Dashboard.jsx';
 import { Products, Categories } from './Catalog.jsx';
 import { Orders, Customers, Coupons, Staff, Activity } from './Management.jsx';
+import { Settings } from './Settings.jsx';
 import './styles.css';
 
-const navigation=[['dashboard','Overview'],['products','Products'],['categories','Categories'],['orders','Orders'],['coupons','Coupons'],['customers','Customers'],['staff','Team'],['activity','Activity log']];
+const navigation=[['dashboard','Overview'],['products','Products'],['categories','Categories'],['orders','Orders'],['coupons','Coupons'],['customers','Customers'],['staff','Team'],['activity','Activity log'],['settings','Settings']];
 
 function AdminLogin({onSubmit,error,busy,onClose}){
   return <main className="login-wrap"><section className="login-card"><div className="brand">Algodon Organic<small>Store administration</small></div><h1>Admin sign in</h1><p>Sign in with your administrator email and password to access the store management dashboard.</p><form id="adminLoginForm" onSubmit={onSubmit}><div className="field"><label htmlFor="adminEmail">Email</label><input id="adminEmail" name="email" type="email" defaultValue="algdondatabase@gmail.com" placeholder="algdondatabase@gmail.com" autoComplete="username" required/></div><div className="field"><label htmlFor="adminPassword">Password</label><input id="adminPassword" name="password" type="password" placeholder="••••••••••••" autoComplete="current-password" required/></div>{error&&<p id="adminLoginError" className="error" role="alert">{error}</p>}<button id="adminLoginSubmit" className="btn primary" type="submit" disabled={busy}>{busy?'Verifying…':'Sign in'}</button></form><div style={{marginTop:'20px',paddingTop:'16px',borderTop:'1px solid var(--line,#333)',textAlign:'center'}}><a href="/" onClick={onClose ? (e) => { e.preventDefault(); onClose(); } : undefined} style={{fontSize:'0.82rem',color:'var(--soft,#888)',textDecoration:'none'}}>← Back to Storefront</a></div></section></main>;
@@ -42,9 +43,17 @@ export default function Admin({ onClose, isEmbedded } = {}){
     catch(error){notify(error.message,true);}
     finally{
       try{localStorage.removeItem('algodon_admin_token');}catch{}
+      try{localStorage.removeItem('algodon_customer_token');}catch{}
+      try{localStorage.removeItem('algodon_customer_user');}catch{}
       setUser(null);setModal(null);
+      if(typeof onClose === 'function'){
+        onClose();
+      }
+      if(typeof window !== 'undefined'){
+        window.location.href = '/';
+      }
     }
-  },[api,notify]);
+  },[api,notify,onClose]);
 
   function onLogin(account){setUser(account);setPage(account.role==='support'?'orders':'dashboard');}
 
@@ -89,7 +98,7 @@ export default function Admin({ onClose, isEmbedded } = {}){
     return()=>{clearTimeout(timer.current);for(const event of ['pointerdown','keydown','scroll'])window.removeEventListener(event,reset);};
   },[user,logout]);
 
-  const pages={dashboard:Dashboard,products:Products,categories:Categories,orders:Orders,coupons:Coupons,customers:Customers,staff:Staff,activity:Activity},Page=pages[page];
+  const pages={dashboard:Dashboard,products:Products,categories:Categories,orders:Orders,coupons:Coupons,customers:Customers,staff:Staff,activity:Activity,settings:Settings},Page=pages[page];
   const allowed=navigation.filter(([key])=>user?.role==='support'?['products','orders','customers'].includes(key):!['staff','activity'].includes(key)||user?.role==='super_admin');
   const context={user,api,revision,refresh,notify,closeModal,openModal:setModal,canEdit:['super_admin','manager'].includes(user?.role)};
 

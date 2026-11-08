@@ -282,6 +282,62 @@ adminRouter.post('/auth/password-update', resetLimiter, requireAdminCsrf, async 
 
 adminRouter.use(requireAdmin);
 adminRouter.get('/me', (req, res) => res.json({ user: req.admin }));
+
+let storeSettings = {
+  store_name: 'Algodon Organic',
+  tagline: '100% GOTS Certified Handcrafted Organic Cotton',
+  announcement: 'FREE SHIPPING ACROSS INDIA · PRINTS SHIP WITHIN 48 HOURS',
+  admin_email: (process.env.ADMIN_EMAIL || 'algdondatabase@gmail.com').trim().toLowerCase(),
+  support_phone: '+91 62814 89942',
+  currency: 'INR',
+  free_shipping_threshold: 0,
+  dispatch_window: '24–48 hours',
+  return_window_days: 7,
+  low_stock_threshold: 5,
+  razorpay_key_id: env.razorpay?.keyId || '',
+  razorpay_status: Boolean(env.razorpay?.keyId) ? 'Live & Connected' : 'Test Mode',
+  cod_enabled: false
+};
+
+adminRouter.get('/settings', requireRole('super_admin', 'manager'), (req, res) => {
+  return res.json({ data: storeSettings });
+});
+
+adminRouter.patch('/settings', requireRole('super_admin'), async (req, res) => {
+  const body = req.body || {};
+  if (body.store_name) storeSettings.store_name = String(body.store_name).trim().slice(0, 100);
+  if (body.tagline) storeSettings.tagline = String(body.tagline).trim().slice(0, 200);
+  if (body.announcement) storeSettings.announcement = String(body.announcement).trim().slice(0, 200);
+  if (body.support_phone) storeSettings.support_phone = String(body.support_phone).trim().slice(0, 30);
+  if (body.free_shipping_threshold != null) storeSettings.free_shipping_threshold = Math.max(0, Number(body.free_shipping_threshold));
+  if (body.dispatch_window) storeSettings.dispatch_window = String(body.dispatch_window).trim().slice(0, 60);
+  if (body.low_stock_threshold != null) storeSettings.low_stock_threshold = Math.max(1, Number(body.low_stock_threshold));
+  if (body.return_window_days != null) storeSettings.return_window_days = Math.max(1, Number(body.return_window_days));
+  if (body.cod_enabled != null) storeSettings.cod_enabled = Boolean(body.cod_enabled);
+
+  if (body.new_password) {
+    const newPass = String(body.new_password);
+    if (newPass.length < 8) return fail(res, 400, 'New password must be at least 8 characters long.');
+    process.env.ADMIN_PASSWORD = newPass;
+    try {
+      const db = getDb();
+      if (db && env.supabase?.serviceRoleKey) {
+        const { data: listed } = await db.auth.admin.listUsers({ page: 1, perPage: 1000 });
+        const user = listed?.users?.find(u => isAuthorizedAdminEmail(u.email));
+        if (user) {
+          await db.auth.admin.updateUserById(user.id, { password: newPass });
+        }
+      }
+    } catch (err) {
+      console.warn('[admin] Password sync note:', err.message);
+    }
+    await writeAudit({ id: req.admin?.id, email: req.admin?.email }, 'admin.password_change', 'admin', req.admin?.id);
+  }
+
+  await writeAudit({ id: req.admin?.id, email: req.admin?.email }, 'admin.settings_update', 'settings', null, body);
+  return res.json({ data: storeSettings, message: 'Settings saved successfully.' });
+});
+
 adminRouter.use(requireAdminCsrf);
 
 adminRouter.get('/dashboard', requireRole('super_admin', 'manager'), async (req, res) => {
