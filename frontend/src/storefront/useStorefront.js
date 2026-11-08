@@ -125,6 +125,12 @@ export function useStorefront() {
       .finally(() => { if (!cancelled) setAuthReady(true); });
     return () => { cancelled = true; subscription?.unsubscribe(); clearTimeout(toastTimer.current); };
   },[notify]);
+  const reloadCatalog = useCallback(() => {
+    request('/api/products').then(result => {
+      if (result.data?.length) setProducts(result.data);
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     const controller = new AbortController();
     request('/api/products',{signal:controller.signal}).then(result => {
@@ -132,6 +138,12 @@ export function useStorefront() {
     }).catch(error => { if (error.name !== 'AbortError') notify('The catalog is temporarily unavailable. Please refresh to try again.'); });
     return () => controller.abort();
   },[notify]);
+
+  useEffect(() => {
+    if (panel === null) {
+      reloadCatalog();
+    }
+  }, [panel, reloadCatalog]);
   useEffect(() => {
     const scroll = () => setScrolled(scrollY > 12);
     const escape = event => { if (event.key === 'Escape') close(); };

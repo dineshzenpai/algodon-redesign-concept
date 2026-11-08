@@ -32,8 +32,8 @@ export default function Storefront() {
       <HelpModal s={s} />
       <ProductDetailModal s={s} />
       {s.panel === 'admin' && (
-        <div id="adminModalOverlay" role="dialog" aria-modal="true" aria-label="Admin Dashboard" style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--surface, #fff)', overflow: 'auto' }}>
-          <Suspense fallback={<div className="loading-screen" style={{ height: '100vh', display: 'grid', placeItems: 'center', fontFamily: "'Fraunces',serif", fontSize: '1.5rem' }}>Algodon Organic · Loading Store Administration…</div>}>
+        <div id="adminModalOverlay" role="dialog" aria-modal="true" aria-label="Admin Dashboard" style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'var(--admin-bg, #f7f5f0)', overflow: 'auto' }}>
+          <Suspense fallback={<div className="loading-screen" style={{ height: '100vh', display: 'grid', placeItems: 'center', fontFamily: "'Fraunces',serif", fontSize: '1.5rem', background: 'var(--admin-bg, #f7f5f0)', color: 'var(--admin-ink, #211c16)' }}>Algodon Organic · Loading Store Administration…</div>}>
             <Admin onClose={s.close} isEmbedded={true} />
           </Suspense>
         </div>
