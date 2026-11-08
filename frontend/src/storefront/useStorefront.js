@@ -569,7 +569,7 @@ export function useStorefront() {
       let pending = readStorage('algodon_pending_checkout',null,sessionStorage);
       if (!pending || pending.fingerprint !== fingerprint) { pending={fingerprint,key:generateUuid()}; writeStorage('algodon_pending_checkout',pending,sessionStorage); }
 
-      const razorpayKey = import.meta.env?.VITE_RAZORPAY_KEY_ID || orderRes.key_id || window.APP_CONFIG?.RAZORPAY_KEY_ID || 'rzp_test_TxoPNM2XG7QyHf';
+      const razorpayKey = import.meta.env?.VITE_RAZORPAY_KEY_ID || orderRes.key_id || window.APP_CONFIG?.RAZORPAY_KEY_ID || 'rzp_test_Txp0G2burc9MyT';
 
       const handleSuccessfulPayment = async (response) => {
         try {
@@ -712,7 +712,7 @@ export function useStorefront() {
 
       if (!orderRes?.order_id) throw new Error(orderRes?.error || 'Failed to create test order.');
 
-      const razorpayKey = import.meta.env?.VITE_RAZORPAY_KEY_ID || orderRes.key_id || window.APP_CONFIG?.RAZORPAY_KEY_ID || 'rzp_test_TxoPNM2XG7QyHf';
+      const razorpayKey = import.meta.env?.VITE_RAZORPAY_KEY_ID || orderRes.key_id || window.APP_CONFIG?.RAZORPAY_KEY_ID || 'rzp_test_Txp0G2burc9MyT';
 
       const options = {
         key: razorpayKey,

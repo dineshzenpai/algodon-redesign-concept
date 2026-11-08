@@ -17,6 +17,6 @@ services:
       - key: SUPABASE_SECRET_KEY
         sync: false
       - key: RAZORPAY_KEY_ID
-        value: rzp_test_TxoPNM2XG7QyHf
+        value: rzp_test_Txp0G2burc9MyT
       - key: RAZORPAY_KEY_SECRET
         sync: false

@@ -5,10 +5,10 @@ import crypto from 'node:crypto';
 describe('Razorpay Standard Checkout backend endpoints', () => {
   let server;
   let baseUrl;
-  const keySecret = '16pvnW9QuHHkv0mr0vg1tqFW';
+  const keySecret = 'kGNrn7XRrIyCI0059NBvakwb';
 
   before(async () => {
-    process.env.RAZORPAY_KEY_ID = 'rzp_test_TxoPNM2XG7QyHf';
+    process.env.RAZORPAY_KEY_ID = 'rzp_test_Txp0G2burc9MyT';
     process.env.RAZORPAY_KEY_SECRET = keySecret;
 
     const appModule = await import('../backend/src/app.js');
@@ -130,7 +130,7 @@ describe('Razorpay Standard Checkout backend endpoints', () => {
     assert.equal(res.status, 200);
     const data = await res.json();
     assert.equal(data.checkout?.paymentsEnabled, true);
-    assert.equal(data.checkout?.razorpayKeyId, 'rzp_test_TxoPNM2XG7QyHf');
+    assert.equal(data.checkout?.razorpayKeyId, 'rzp_test_Txp0G2burc9MyT');
   });
 
   it('POST /api/checkout/notify-bill sends tax invoice bill to customer email and SMS', async () => {
