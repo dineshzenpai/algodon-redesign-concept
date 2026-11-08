@@ -571,114 +571,153 @@ export function useStorefront() {
 
       const razorpayKey = import.meta.env?.VITE_RAZORPAY_KEY_ID || orderRes.key_id || window.APP_CONFIG?.RAZORPAY_KEY_ID || 'rzp_test_TwvLKjX2XuZDFi';
 
-      const razorpay = new window.Razorpay({
-        key: razorpayKey,
-        amount: orderRes.amount,
-        currency: orderRes.currency || 'INR',
-        name: 'Algodon Organic',
-        description: '100% Organic Hand Block-Print Shirts',
-        image: '/img/favicon.svg',
-        order_id: orderRes.order_id,
-        prefill: {
-          name: address.name || user?.user_metadata?.full_name || '',
-          email: address.email || user?.email || '',
-          contact: address.phone || ''
-        },
-        theme: {
-          color: '#c45c3c'
-        },
-        modal: {
-          ondismiss: () => {
-            setBusy('');
-            setCartNote('Payment cancelled. Your cart items are preserved.');
-            notify('Checkout modal closed.');
-          }
-        },
-        handler: async (response) => {
-          try {
-            setBusy('checkout');
-            setCartNote('Verifying payment signature with bank…');
+      const handleSuccessfulPayment = async (response) => {
+        try {
+          setBusy('checkout');
+          setCartNote('Verifying payment signature with bank…');
 
-            const verifyRes = await request('/api/verify-payment', {
+          const verifyRes = await request('/api/verify-payment', {
+            method: 'POST',
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            })
+          });
+
+          if (!verifyRes?.success) {
+            throw new Error(verifyRes?.error || 'Payment signature mismatch.');
+          }
+
+          // Record and confirm the order
+          let confirmedOrder = null;
+          try {
+            const result = await accountFetch('/api/checkout/orders', {
+              method: 'POST',
+              headers: { 'Idempotency-Key': pending.key },
+              body: JSON.stringify(input)
+            });
+            if (result?.data?.id) confirmedOrder = result.data;
+          } catch (err) {
+            console.warn('[checkout] Order sync notice:', err.message);
+          }
+
+          if (!confirmedOrder) {
+            confirmedOrder = {
+              id: response.razorpay_order_id,
+              items: input.items,
+              customer: address,
+              subtotal: total,
+              created_at: new Date().toISOString(),
+              status: 'Confirmed'
+            };
+          }
+
+          removeStorage('algodon_pending_checkout', sessionStorage);
+          setLastOrder(confirmedOrder);
+          const saved = readOrders();
+          if (!user && !saved.some(item => item.id === confirmedOrder.id)) {
+            writeStorage(ORDERS, [...saved, confirmedOrder]);
+          }
+          setCart([]);
+          setCoupon(null);
+
+          // Automated Tax Invoice & SMS bill notification
+          try {
+            await request('/api/checkout/notify-bill', {
               method: 'POST',
               body: JSON.stringify({
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature
+                order: confirmedOrder,
+                customer: address,
+                payment: { razorpay_payment_id: response.razorpay_payment_id }
               })
             });
-
-            if (!verifyRes?.success) {
-              throw new Error(verifyRes?.error || 'Payment signature mismatch.');
-            }
-
-            // Record and confirm the order
-            let confirmedOrder = null;
-            try {
-              const result = await accountFetch('/api/checkout/orders', {
-                method: 'POST',
-                headers: { 'Idempotency-Key': pending.key },
-                body: JSON.stringify(input)
-              });
-              if (result?.data?.id) confirmedOrder = result.data;
-            } catch (err) {
-              console.warn('[checkout] Order sync notice:', err.message);
-            }
-
-            if (!confirmedOrder) {
-              confirmedOrder = {
-                id: response.razorpay_order_id,
-                items: input.items,
-                customer: address,
-                subtotal: total,
-                created_at: new Date().toISOString(),
-                status: 'Confirmed'
-              };
-            }
-
-            removeStorage('algodon_pending_checkout', sessionStorage);
-            setLastOrder(confirmedOrder);
-            const saved = readOrders();
-            if (!user && !saved.some(item => item.id === confirmedOrder.id)) {
-              writeStorage(ORDERS, [...saved, confirmedOrder]);
-            }
-            setCart([]);
-            setCoupon(null);
-
-            // Automated Tax Invoice & SMS bill notification
-            try {
-              await request('/api/checkout/notify-bill', {
-                method: 'POST',
-                body: JSON.stringify({
-                  order: confirmedOrder,
-                  customer: address,
-                  payment: { razorpay_payment_id: response.razorpay_payment_id }
-                })
-              });
-            } catch (notifyErr) {
-              console.warn('[checkout] Bill notify warning:', notifyErr.message);
-            }
-
-            setCartNote(`Payment confirmed (Ref: ${response.razorpay_payment_id}). Invoice sent to ${address.email || 'your email'} & SMS sent to ${address.phone || 'your phone'}.`);
-            notify(`Order Confirmed! Tax Invoice sent to ${address.email || 'your email'} & SMS to ${address.phone || 'your phone'}.`);
-            if (newsletterOptIn) request('/api/newsletter', { method: 'POST', body: JSON.stringify({ email: address.email }) }).catch(() => {});
-          } catch (err) {
-            setCartNote(err.message || 'Payment verification failed.');
-            notify(err.message || 'Payment verification failed.', true);
-          } finally {
-            setBusy('');
+          } catch (notifyErr) {
+            console.warn('[checkout] Bill notify warning:', notifyErr.message);
           }
+
+          setCartNote(`Payment confirmed (Ref: ${response.razorpay_payment_id}). Invoice sent to ${address.email || 'your email'} & SMS sent to ${address.phone || 'your phone'}.`);
+          notify(`Order Confirmed! Tax Invoice sent to ${address.email || 'your email'} & SMS to ${address.phone || 'your phone'}.`);
+          if (newsletterOptIn) request('/api/newsletter', { method: 'POST', body: JSON.stringify({ email: address.email }) }).catch(() => {});
+        } catch (err) {
+          setCartNote(err.message || 'Payment verification failed.');
+          notify(err.message || 'Payment verification failed.', true);
+        } finally {
+          setBusy('');
         }
-      });
+      };
 
-      razorpay.on('payment.failed', (failResp) => {
-        setBusy('');
-        const reason = failResp?.error?.description || failResp?.error?.reason || 'Payment failed';
-        setCartNote(`Payment failed: ${reason}`);
-        notify(`Payment failed: ${reason}`, true);
-      });
+      // If in simulated test mode, allow direct simulated transaction completion
+      if (orderRes.simulated) {
+        const proceed = window.confirm(
+          `Razorpay Test Mode: Confirm Test Payment?\n\nAmount: Rs. ${total.toLocaleString('en-IN')}\nOrder ID: ${orderRes.order_id}\n\nClick OK to complete the test payment, generate your Tax Invoice, and test the full store flow.`
+        );
+        if (!proceed) {
+          setBusy('');
+          setCartNote('Test payment cancelled.');
+          notify('Test payment was cancelled.');
+          return;
+        }
 
-      razorpay.open();
+        await handleSuccessfulPayment({
+          razorpay_order_id: orderRes.order_id,
+          razorpay_payment_id: `pay_test_${Date.now()}`,
+          razorpay_signature: `sig_test_${Date.now()}`
+        });
+        return;
+      }
+
+      try {
+        const razorpay = new window.Razorpay({
+          key: razorpayKey,
+          amount: orderRes.amount,
+          currency: orderRes.currency || 'INR',
+          name: 'Algodon Organic',
+          description: '100% Organic Hand Block-Print Shirts',
+          image: '/img/favicon.svg',
+          order_id: orderRes.order_id,
+          prefill: {
+            name: address.name || user?.user_metadata?.full_name || '',
+            email: address.email || user?.email || '',
+            contact: address.phone || ''
+          },
+          theme: {
+            color: '#c45c3c'
+          },
+          modal: {
+            ondismiss: () => {
+              setBusy('');
+              setCartNote('Payment cancelled. Your cart items are preserved.');
+              notify('Checkout modal closed.');
+            }
+          },
+          handler: handleSuccessfulPayment
+        });
+
+        razorpay.on('payment.failed', (failResp) => {
+          setBusy('');
+          const reason = failResp?.error?.description || failResp?.error?.reason || 'Payment failed';
+          setCartNote(`Payment failed: ${reason}`);
+          notify(`Payment failed: ${reason}`, true);
+        });
+
+        razorpay.open();
+      } catch (sdkErr) {
+        console.warn('[checkout] Razorpay SDK open warning:', sdkErr);
+        const proceedSim = window.confirm(
+          `Razorpay Test Mode:\n\nCould not initialize live modal (${sdkErr.message}).\n\nClick OK to complete test payment simulation and generate your invoice.`
+        );
+        if (proceedSim) {
+          await handleSuccessfulPayment({
+            razorpay_order_id: orderRes.order_id,
+            razorpay_payment_id: `pay_test_${Date.now()}`,
+            razorpay_signature: `sig_test_${Date.now()}`
+          });
+        } else {
+          setBusy('');
+          setCartNote('Checkout cancelled.');
+        }
+      }
     } catch (error) {
       setCartNote(error.message || 'Failed to initiate checkout.');
       notify(error.message || 'Failed to initiate checkout.', true);
@@ -704,6 +743,23 @@ export function useStorefront() {
       });
 
       if (!orderRes?.order_id) throw new Error(orderRes?.error || 'Failed to create test order.');
+
+      if (orderRes.simulated) {
+        setCartNote('Simulating test payment verification…');
+        const verifyRes = await request('/api/verify-payment', {
+          method: 'POST',
+          body: JSON.stringify({
+            razorpay_order_id: orderRes.order_id,
+            razorpay_payment_id: `pay_test_${Date.now()}`,
+            razorpay_signature: `sig_test_${Date.now()}`
+          })
+        });
+        if (!verifyRes?.success) throw new Error(verifyRes?.error || 'Signature mismatch');
+        setCartNote(`Test payment verified! Payment ID: ${verifyRes.payment_id}`);
+        notify(`Test payment verified! ID: ${verifyRes.payment_id}`);
+        setBusy('');
+        return;
+      }
 
       const razorpayKey = import.meta.env?.VITE_RAZORPAY_KEY_ID || orderRes.key_id || window.APP_CONFIG?.RAZORPAY_KEY_ID || 'rzp_test_TwvLKjX2XuZDFi';
 
