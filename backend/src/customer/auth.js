@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { getDb } from '../config/db.js';
 import { env } from '../config/env.js';
 import { email, parse, databaseError } from '../lib/http.js';
-import { ensureInitialAdmin } from '../admin/auth.js';
+import { ensureInitialAdmin, isAuthorizedAdminEmail } from '../admin/auth.js';
 import { sendAuthOtpSms } from '../lib/notifications.js';
 
 export const authRouter = Router();
@@ -75,7 +75,9 @@ export async function customerAuth(req, res, next) {
   }
   try {
     const { data, error } = await getDb().auth.getUser(token);
-    if (error || !data?.user?.email_confirmed_at) return res.status(401).json({ error: 'A verified customer session is required.' });
+    const user = data?.user;
+    const isConfirmed = Boolean(user?.email_confirmed_at || user?.confirmed_at || user?.app_metadata?.provider === 'google' || user?.user_metadata?.email_verified || isAuthorizedAdminEmail(user?.email));
+    if (error || !isConfirmed) return res.status(401).json({ error: 'A verified customer session is required.' });
     const revoked = await getDb().from('customer_revoked_tokens').select('token_hash').eq('token_hash', tokenHash(token)).maybeSingle();
     if (revoked.error) return res.status(503).json({ error: 'Your account could not be verified.' });
     if (revoked.data) return res.status(401).json({ error: 'Session expired. Sign in again.' });
@@ -99,9 +101,8 @@ authRouter.post('/login', async (req, res) => {
 
   const emailStr = String(input.email || '').trim().toLowerCase();
   const passwordStr = String(input.password || '');
-  const defaultAdminEmail = (process.env.ADMIN_EMAIL || 'admin@algodonfashion.com').trim().toLowerCase();
   const defaultAdminPassword = process.env.ADMIN_PASSWORD || 'AdminPassword123!';
-  const isMasterAdmin = (emailStr === defaultAdminEmail || emailStr === 'admin@algodonfashion.com' || emailStr === 'admin@example.com') &&
+  const isMasterAdmin = isAuthorizedAdminEmail(emailStr) &&
                         (passwordStr === defaultAdminPassword || passwordStr === 'AdminPassword123!');
 
   // If credentials match default admin, auto-bootstrap or authenticate directly
@@ -307,8 +308,7 @@ authRouter.post('/otp/verify', async (req, res) => {
 
   otpCache.delete(cacheKey);
 
-  const defaultAdminEmail = (process.env.ADMIN_EMAIL || 'admin@algodonfashion.com').trim().toLowerCase();
-  const isAdmin = (isEmail && (cacheKey === defaultAdminEmail || cacheKey === 'admin@algodonfashion.com' || cacheKey === 'admin@example.com')) || cacheKey === '9999999999';
+  const isAdmin = (isEmail && isAuthorizedAdminEmail(cacheKey)) || cacheKey === '9999999999';
 
   if (isAdmin) {
     const adminRole = 'super_admin';
@@ -415,14 +415,13 @@ authRouter.post('/google', async (req, res) => {
     return res.status(400).json({ error: 'A valid Google email is required.' });
   }
 
-  const defaultAdminEmail = (process.env.ADMIN_EMAIL || 'admin@algodonfashion.com').trim().toLowerCase();
-  const isAdmin = emailStr === defaultAdminEmail || emailStr === 'admin@algodonfashion.com' || emailStr === 'admin@example.com';
+  const isAdmin = isAuthorizedAdminEmail(emailStr);
 
   if (isAdmin) {
     const adminRole = 'super_admin';
     await ensureInitialAdmin().catch(() => {});
     const sessionToken = 'admin-google-' + createHash('sha256').update(emailStr + Date.now()).digest('hex');
-    const expiresIn = 3600;
+    const expiresIn = 86400;
 
     try {
       const db = getDb();
@@ -439,7 +438,7 @@ authRouter.post('/google', async (req, res) => {
       httpOnly: true,
       secure: env.nodeEnv === 'production',
       sameSite: env.nodeEnv === 'production' ? 'none' : 'lax',
-      path: '/api/admin',
+      path: '/',
       maxAge: expiresIn * 1000
     });
 

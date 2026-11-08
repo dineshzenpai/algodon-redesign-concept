@@ -20,7 +20,27 @@ export function Header({s}) {
         </a>
         <nav className="icons">
           <button className="icon-btn" id="searchToggle" aria-label="Search" onClick={() => s.open("search")}>Search</button>
-          <div className="account-nav">
+          <div className="account-nav" style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+            {s.isAdmin && (
+              <a
+                href="/admin"
+                id="headerAdminLink"
+                className="btn btn-ghost"
+                style={{
+                  padding: "5px 11px",
+                  fontSize: "0.75rem",
+                  borderColor: "var(--accent)",
+                  color: "var(--accent)",
+                  fontWeight: 700,
+                  textDecoration: "none",
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "4px"
+                }}
+              >
+                ⚙ Admin Dashboard
+              </a>
+            )}
             <button
               className="icon-btn"
               id="accountToggle"
@@ -31,7 +51,7 @@ export function Header({s}) {
             >
               <img id="accountAvatar" alt="" hidden />
               <span id="accountNavLabel">
-                {s.user ? (s.user.user_metadata?.full_name?.split(" ")[0] || s.user.full_name?.split(" ")[0] || "Account") : "Sign In"}
+                {s.user ? (s.isAdmin ? "Admin ⚙" : (s.user.user_metadata?.full_name?.split(" ")[0] || s.user.full_name?.split(" ")[0] || "Account")) : "Sign In"}
               </span>
             </button>
           </div>
@@ -686,6 +706,25 @@ export function AccountDrawer({s}) {
                           Save Shipping Details
                         </button>
                       </form>
+                    )}
+
+                    {s.isAdmin && (
+                      <div style={{ marginTop: "20px", padding: "14px", background: "rgba(196, 92, 60, 0.08)", border: "1px solid var(--accent)", borderRadius: "8px", textAlign: "center" }}>
+                        <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "var(--accent)", marginBottom: "4px" }}>
+                          ⚙ Store Administrator
+                        </div>
+                        <p style={{ margin: "0 0 10px", fontSize: "0.78rem", color: "var(--ink-soft)" }}>
+                          Signed in with authorized admin account ({s.user.email}).
+                        </p>
+                        <a
+                          href="/admin"
+                          id="drawerAdminLink"
+                          className="btn btn-solid"
+                          style={{ width: "100%", justifyContent: "center", textDecoration: "none", padding: "10px", fontSize: "0.85rem" }}
+                        >
+                          Launch Store Admin Dashboard →
+                        </a>
+                      </div>
                     )}
 
                     <button type="button" className="btn btn-ghost" id="signOutBtn" style={{ marginTop: "24px", width: "100%", justifyContent: "center" }} onClick={s.signOut}>

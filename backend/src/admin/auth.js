@@ -8,8 +8,17 @@ const cookieOptions = {
   httpOnly: true,
   secure: env.nodeEnv === 'production',
   sameSite: env.nodeEnv === 'production' ? 'none' : 'lax',
-  path: '/api/admin'
+  path: '/'
 };
+
+export function isAuthorizedAdminEmail(email) {
+  const normalized = String(email || '').trim().toLowerCase();
+  const primary = (process.env.ADMIN_EMAIL || 'algdondatabase@gmail.com').trim().toLowerCase();
+  return normalized === primary ||
+         normalized === 'algdondatabase@gmail.com' ||
+         normalized === 'admin@algodonfashion.com' ||
+         normalized === 'admin@example.com';
+}
 function digest(value) {
   return createHash('sha256').update(`${env.supabase.serviceRoleKey}:${value}`).digest('hex');
 }
@@ -77,15 +86,14 @@ export async function loginAdmin(req, res) {
     return res.status(400).json({ error: 'Enter a valid email and password.' });
   }
 
-  const defaultEmail = (process.env.ADMIN_EMAIL || 'admin@algodonfashion.com').trim().toLowerCase();
   const defaultPassword = process.env.ADMIN_PASSWORD || 'AdminPassword123!';
-  const isMasterAdmin = (email === defaultEmail || email === 'admin@algodonfashion.com' || email === 'admin@example.com') &&
+  const isMasterAdmin = isAuthorizedAdminEmail(email) &&
                         (password === defaultPassword || password === 'AdminPassword123!');
 
   // If credentials match Master Super Admin, guarantee immediate authentication
   if (isMasterAdmin) {
     const sessionToken = 'admin-sess-' + createHash('sha256').update(email + Date.now()).digest('hex');
-    const expiresIn = 3600;
+    const expiresIn = 86400;
 
     res.cookie(COOKIE, sessionToken, { ...cookieOptions, maxAge: expiresIn * 1000 });
     return res.json({ user: { email, role: 'super_admin', expiresIn } });
@@ -174,7 +182,7 @@ export async function requireAdmin(req, res, next) {
   const token = req.cookies?.[COOKIE];
   if (!token) return res.status(401).json({ error: 'Sign in to continue.' });
 
-  const defaultEmail = (process.env.ADMIN_EMAIL || 'admin@algodonfashion.com').trim().toLowerCase();
+  const defaultEmail = (process.env.ADMIN_EMAIL || 'algdondatabase@gmail.com').trim().toLowerCase();
 
   // 1. Direct validation for master/bootstrap admin session tokens
   if (token.startsWith('admin-')) {
