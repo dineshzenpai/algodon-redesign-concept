@@ -98,45 +98,11 @@ export function useStorefront() {
       if (cancelled || !config.supabase?.url || !config.supabase.publishableKey) return;
       const supabase = createClient(config.supabase.url,config.supabase.publishableKey);
       setClient(supabase);
-      async function syncAdminUser(u) {
-        if (!u?.email) return false;
-        const norm = u.email.trim().toLowerCase();
-        if (norm === 'algdondatabase@gmail.com' || norm === 'admin@algodonfashion.com' || norm === 'admin@example.com') {
-          try {
-            const res = await request('/api/auth/google', {
-              method: 'POST',
-              body: JSON.stringify({
-                email: u.email,
-                name: u.user_metadata?.full_name || 'Admin',
-                provider: 'google'
-              })
-            });
-            if (res?.isAdmin) {
-              const adminUser = { ...u, isAdmin: true, role: 'super_admin' };
-              setUser(adminUser);
-              setIsAdmin(true);
-              setAdminRole('super_admin');
-              writeStorage('algodon_customer_user', adminUser);
-              if (typeof window !== 'undefined' && location.pathname !== '/admin') {
-                window.location.href = '/admin';
-              }
-              return true;
-            }
-          } catch (err) {
-            console.warn('[auth] Admin sync error:', err.message);
-          }
-        }
-        return false;
-      }
-
-      subscription = supabase.auth.onAuthStateChange(async (event,session) => {
+      subscription = supabase.auth.onAuthStateChange((event,session) => {
         if (cancelled) return;
         if (session?.user) {
-          const isSuper = await syncAdminUser(session.user);
-          if (!isSuper && !cancelled) {
-            setUser(session.user);
-            writeStorage('algodon_customer_user', session.user);
-          }
+          setUser(session.user);
+          writeStorage('algodon_customer_user', session.user);
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setIsAdmin(false);
@@ -146,15 +112,12 @@ export function useStorefront() {
         setAuthReady(true);
         if (event === 'PASSWORD_RECOVERY') { setAuthMode('recovery'); setPanel('account'); }
       }).data.subscription;
-      return supabase.auth.getSession().then(async ({data,error}) => {
+      return supabase.auth.getSession().then(({data,error}) => {
         if (cancelled) return;
         if (error) throw error;
         if (data.session?.user) {
-          const isSuper = await syncAdminUser(data.session.user);
-          if (!isSuper && !cancelled) {
-            setUser(data.session.user);
-            writeStorage('algodon_customer_user', data.session.user);
-          }
+          setUser(data.session.user);
+          writeStorage('algodon_customer_user', data.session.user);
         }
         if (new URLSearchParams(location.hash.slice(1)).get('type') === 'recovery') setPanel('account');
       });
@@ -475,11 +438,7 @@ export function useStorefront() {
         setPanel('account');
         setAccountView('profile');
         if (res.isAdmin) {
-          notify(`Welcome! Store Admin access unlocked (${res.role?.replace('_', ' ') || 'admin'}). Redirecting to Admin Dashboard…`);
-          if (typeof window !== 'undefined' && location.pathname !== '/admin') {
-            window.location.href = '/admin';
-            return;
-          }
+          notify(`Welcome! Store Admin access unlocked (${res.role?.replace('_', ' ') || 'admin'}).`);
         } else {
           notify(`Welcome, ${loggedUser.full_name?.split(' ')[0] || loggedUser.email}! Signed in with Google.`);
         }

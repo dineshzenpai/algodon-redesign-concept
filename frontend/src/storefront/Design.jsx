@@ -985,6 +985,7 @@ export function Footer({s}) {
         <div className="footer-bottom">
           <span>© Algodon Organic · 100% GOTS Certified Cotton</span>
           <span>Free Pan-India Delivery · Hand block-printed in Rajasthan</span>
+          <span><a href="/admin" id="footerAdminLink" style={{ color: "var(--ink-soft)", textDecoration: "none", fontSize: "0.78rem" }}>Admin Portal ↗</a></span>
         </div>
       </footer>
     </>

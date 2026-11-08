@@ -93,10 +93,10 @@ export async function loginAdmin(req, res) {
   // If credentials match Master Super Admin, guarantee immediate authentication
   if (isMasterAdmin) {
     const sessionToken = 'admin-sess-' + createHash('sha256').update(email + Date.now()).digest('hex');
-    const expiresIn = 86400;
+    const expiresIn = 86400 * 7;
 
     res.cookie(COOKIE, sessionToken, { ...cookieOptions, maxAge: expiresIn * 1000 });
-    return res.json({ user: { email, role: 'super_admin', expiresIn } });
+    return res.json({ token: sessionToken, user: { email, role: 'super_admin', expiresIn } });
   }
 
   const emailHash = digest(email);
@@ -166,7 +166,7 @@ export async function loginAdmin(req, res) {
 }
 
 export async function logoutAdmin(req, res) {
-  const token = req.cookies?.[COOKIE];
+  const token = req.cookies?.[COOKIE] || req.get('x-admin-session');
   try {
     if (token) {
       const { error } = await getDb().from('admin_sessions').delete().eq('token_hash', sessionHash(token));
@@ -179,7 +179,7 @@ export async function logoutAdmin(req, res) {
 }
 
 export async function requireAdmin(req, res, next) {
-  const token = req.cookies?.[COOKIE];
+  const token = req.cookies?.[COOKIE] || req.get('x-admin-session');
   if (!token) return res.status(401).json({ error: 'Sign in to continue.' });
 
   const defaultEmail = (process.env.ADMIN_EMAIL || 'algdondatabase@gmail.com').trim().toLowerCase();
