@@ -15,12 +15,12 @@ export function deploymentConfig(apiUrl = '') {
     throw new Error('VITE_API_URL must use HTTPS in the production build.');
   }
   const csp = [
-    "default-src 'self'", "script-src 'self' https://cdn.jsdelivr.net https://checkout.razorpay.com https://accounts.google.com",
-    "script-src-attr 'none'", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-    "font-src 'self' https://fonts.gstatic.com data:", "img-src 'self' https: data: blob:",
-    `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''} https://api.razorpay.com https://lumberjack.razorpay.com https://*.supabase.co wss://*.supabase.co https://accounts.google.com`,
-    "frame-src 'self' https://api.razorpay.com https://accounts.google.com", "object-src 'none'",
-    "base-uri 'self'", "form-action 'self'", "frame-ancestors 'none'", 'upgrade-insecure-requests'
+    "default-src 'self'", "script-src 'self' https://cdn.jsdelivr.net https://checkout.razorpay.com https://*.razorpay.com https://accounts.google.com",
+    "script-src-attr 'none'", "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.razorpay.com",
+    "font-src 'self' https://fonts.gstatic.com https://*.razorpay.com data:", "img-src 'self' https: data: blob:",
+    `connect-src 'self'${apiOrigin ? ` ${apiOrigin}` : ''} https://api.razorpay.com https://*.razorpay.com https://lumberjack.razorpay.com https://*.supabase.co wss://*.supabase.co https://accounts.google.com`,
+    "frame-src 'self' https://api.razorpay.com https://checkout.razorpay.com https://*.razorpay.com https://accounts.google.com https:", "object-src 'none'",
+    "base-uri 'self'", "form-action 'self' https://api.razorpay.com https://*.razorpay.com https:", "frame-ancestors 'none'", 'upgrade-insecure-requests'
   ].join('; ');
   return { version:3, routes:[
     { src:'/(.*)', headers:{ 'Content-Security-Policy':csp, 'X-Content-Type-Options':'nosniff', 'X-Frame-Options':'DENY', 'Referrer-Policy':'strict-origin-when-cross-origin' }, continue:true },

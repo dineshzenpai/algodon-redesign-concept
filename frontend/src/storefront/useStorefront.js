@@ -653,7 +653,7 @@ export function useStorefront() {
         currency: orderRes.currency || 'INR',
         name: 'Algodon Organic',
         description: '100% Organic Hand Block-Print Shirts',
-        image: '/img/favicon.svg',
+        image: (typeof window !== 'undefined' ? window.location.origin : '') + '/img/favicon.svg',
         prefill: {
           name: address.name || user?.user_metadata?.full_name || '',
           email: address.email || user?.email || '',
@@ -720,7 +720,7 @@ export function useStorefront() {
         currency: orderRes.currency || 'INR',
         name: 'Algodon Organic',
         description: '100% Organic Hand Block-Print Shirts',
-        image: '/img/favicon.svg',
+        image: (typeof window !== 'undefined' ? window.location.origin : '') + '/img/favicon.svg',
         prefill: {
           name: address.name || user?.user_metadata?.full_name || 'Algodon Customer',
           email: address.email || user?.email || 'customer@algodonfashion.com',

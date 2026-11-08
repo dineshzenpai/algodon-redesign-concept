@@ -27,21 +27,23 @@ app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", 'https://cdn.jsdelivr.net', 'https://checkout.razorpay.com'],
+      scriptSrc: ["'self'", 'https://cdn.jsdelivr.net', 'https://checkout.razorpay.com', 'https://*.razorpay.com', 'https://accounts.google.com'],
       scriptSrcAttr: ["'none'"],
-      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
-      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com', 'https://*.razorpay.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com', 'https://*.razorpay.com', 'data:'],
       imgSrc: ["'self'", 'https:', 'data:', 'blob:'],
       connectSrc: [
         "'self'",
         'https://api.razorpay.com',
+        'https://*.razorpay.com',
         'https://lumberjack.razorpay.com',
-        ...(env.supabase.url ? [env.supabase.url, env.supabase.url.replace(/^https:/, 'wss:')] : [])
+        ...(env.supabase.url ? [env.supabase.url, env.supabase.url.replace(/^https:/, 'wss:')] : []),
+        'https://accounts.google.com'
       ],
-      frameSrc: ["'self'", 'https://api.razorpay.com'],
+      frameSrc: ["'self'", 'https://api.razorpay.com', 'https://checkout.razorpay.com', 'https://*.razorpay.com', 'https://accounts.google.com', 'https:'],
       objectSrc: ["'none'"],
       baseUri: ["'self'"],
-      formAction: ["'self'"],
+      formAction: ["'self'", 'https://api.razorpay.com', 'https://*.razorpay.com', 'https:'],
       frameAncestors: ["'none'"],
       upgradeInsecureRequests: env.nodeEnv === 'production' ? [] : null
     }
