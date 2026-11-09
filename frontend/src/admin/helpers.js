@@ -26,11 +26,26 @@ export function csvDownload(filename,rows) {
   link.href=url;link.download=filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 export async function compressImage(file) {
-  if(!['image/jpeg','image/png','image/webp','image/avif'].includes(file.type))throw new Error('Choose a JPEG, PNG, WebP, or AVIF image.');
-  const image=await createImageBitmap(file),scale=Math.min(1,2200/Math.max(image.width,image.height));
-  const canvas=document.createElement('canvas');canvas.width=Math.round(image.width*scale);canvas.height=Math.round(image.height*scale);canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);image.close();
-  const blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',.84));
-  if(!blob)throw new Error('Image compression failed.');
-  return new File([blob],file.name.replace(/\.[^.]+$/,'')+'.webp',{type:'image/webp'});
+  if (!file) throw new Error('No file provided.');
+  try {
+    if (typeof createImageBitmap !== 'function') return file;
+    const image = await createImageBitmap(file);
+    const maxDim = 1400;
+    const scale = Math.min(1, maxDim / Math.max(image.width, image.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(image.width * scale));
+    canvas.height = Math.max(1, Math.round(image.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+    if (typeof image.close === 'function') image.close();
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/webp', 0.80));
+    if (blob && blob.size > 0) {
+      return new File([blob], file.name.replace(/\.[^.]+$/, '') + '.webp', { type: 'image/webp' });
+    }
+  } catch (err) {
+    console.warn('[compressImage] Fallback to raw file:', err);
+  }
+  return file;
 }
-export const slugify=value=>value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+export const slugify = value => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');

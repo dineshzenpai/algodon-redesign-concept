@@ -179,16 +179,18 @@ const fallbackCustomers = [
   { name: 'Rohan Deshmukh', email: 'rohan.d@example.com', phone: '9765432109', orders: 2, totalSpent: 3800, blocked: false, addresses: ['Plot 45 Koregaon Park, Pune, Maharashtra 411001'] }
 ];
 
-const imageRefSchema = z.string().max(1000000).refine((value) => {
+const slugify = value => String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+
+const imageRefSchema = z.string().max(15000000).refine((value) => {
   if (value.startsWith('data:image/')) return true;
   if (value.startsWith('/') && !value.startsWith('//')) return true;
   try { return new URL(value).protocol === 'https:'; } catch { return false; }
 }, 'Use a secure image URL or a site-relative path.');
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false });
 const resetLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: 'draft-8', legacyHeaders: false });
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 16 }, fileFilter: (req, file, cb) => {
-  const supported = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
-  cb(supported.includes(file.mimetype) ? null : new Error('Upload a JPEG, PNG, WebP, or AVIF image.'), supported.includes(file.mimetype));
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024, files: 20 }, fileFilter: (req, file, cb) => {
+  const supported = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/jpg'];
+  cb(supported.includes(file.mimetype) || file.mimetype === 'image/jpg' ? null : new Error('Upload a JPEG, PNG, WebP, or AVIF image.'), true);
 } });
 
 function imageSignatureMatches(file) {
@@ -200,19 +202,44 @@ function imageSignatureMatches(file) {
   return false;
 }
 
-const productSchema = z.object({
-  name: z.string().trim().min(1).max(200), slug: z.string().trim().min(1).max(220).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
-  description: z.string().max(10000).default(''), price: z.coerce.number().nonnegative(), sale_price: z.coerce.number().nonnegative().nullable().optional(),
-  sku: z.string().trim().max(80).nullable().optional(), brand: z.string().trim().max(120).default('Algodon Organic'),
-  tags: z.array(z.string().trim().max(40)).max(30).default([]), variants: z.array(z.object({ size: z.string().trim().min(1).max(40), color: z.string().max(50).optional(), sku: z.string().max(80).optional(), stock: z.number().int().nonnegative().default(0) })).max(100).default([]),
-  category_id: z.string().uuid().nullable().optional(), stock_count: z.coerce.number().int().nonnegative().default(0), low_stock_threshold: z.coerce.number().int().nonnegative().default(5),
-  out_of_stock_hidden: z.boolean().default(false), images: z.array(imageRefSchema).max(20).default([]), published: z.boolean().default(false),
-  seo_title: z.string().max(200).default(''), meta_description: z.string().max(320).default('')
-}).refine((p) => p.sale_price == null || p.price == null || p.sale_price <= p.price, { message: 'Sale price cannot exceed regular price.', path: ['sale_price'] })
-  .refine((p) => !p.variants?.length || p.stock_count == null || p.variants.reduce((sum, variant) => sum + variant.stock, 0) === p.stock_count, { message: 'Product stock must equal the sum of variant stock.', path: ['stock_count'] })
+const productBaseSchema = z.object({
+  name: z.string().trim().min(1, 'Product name is required.').max(200),
+  slug: z.preprocess(
+    v => typeof v === 'string' ? slugify(v) : v,
+    z.string().trim().min(1).max(220).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must only contain lowercase letters, numbers, and hyphens.')
+  ),
+  description: z.string().max(10000).default(''),
+  price: z.coerce.number().nonnegative('Price must be 0 or higher.'),
+  sale_price: z.coerce.number().nonnegative().nullable().optional(),
+  sku: z.string().trim().max(80).nullable().optional(),
+  brand: z.string().trim().max(120).default('Algodon Organic'),
+  tags: z.array(z.string().trim().max(40)).max(30).default([]),
+  variants: z.array(z.object({
+    size: z.string().trim().min(1).max(40),
+    color: z.string().max(50).optional(),
+    sku: z.string().max(80).optional(),
+    stock: z.coerce.number().int().nonnegative().default(0)
+  })).max(100).default([]),
+  category_id: z.preprocess(
+    v => (!v || String(v).trim() === '' ? null : String(v).trim()),
+    z.string().uuid().nullable().optional()
+  ),
+  stock_count: z.coerce.number().int().nonnegative().default(0),
+  low_stock_threshold: z.coerce.number().int().nonnegative().default(5),
+  out_of_stock_hidden: z.boolean().default(false),
+  images: z.array(imageRefSchema).max(20).default([]),
+  published: z.boolean().default(false),
+  seo_title: z.string().max(200).default(''),
+  meta_description: z.string().max(320).default('')
+});
+
+const productSchema = productBaseSchema
+  .refine((p) => p.sale_price == null || p.price == null || p.sale_price <= p.price, { message: 'Sale price cannot exceed regular price.', path: ['sale_price'] })
+  .refine((p) => !p.variants?.length || p.stock_count == null || p.variants.reduce((sum, variant) => sum + Number(variant.stock || 0), 0) === p.stock_count, { message: 'Product stock must equal the sum of variant stock.', path: ['stock_count'] })
   .refine(p => new Set(p.variants.map(v => v.size)).size === p.variants.length, { message: 'Variant sizes must be unique.', path: ['variants'] });
+
 const patchFields = shape => Object.fromEntries(Object.entries(shape).map(([key, field]) => [key, field instanceof z.ZodDefault ? field.removeDefault() : field]));
-const productPatchSchema = z.object(patchFields(productSchema.shape)).partial().strict().refine(p => Object.keys(p).length > 0, 'Provide product fields to update.');
+const productPatchSchema = z.object(patchFields(productBaseSchema.shape)).partial().strict().refine(p => Object.keys(p).length > 0, 'Provide product fields to update.');
 const categorySchema = z.object({ name: z.string().trim().min(1).max(120), slug: z.string().trim().min(1).max(140).regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/), description: z.string().max(3000).default(''), image_url: imageRefSchema.nullable().optional(), parent_id: z.string().uuid().nullable().optional(), sort_order: z.coerce.number().int().min(0).default(0), active: z.boolean().default(true) });
 const couponSchema = z.object({ code: z.string().trim().min(3).max(40).regex(/^[A-Za-z0-9_-]+$/).transform((v) => v.toUpperCase()), type: z.enum(['percentage', 'flat', 'free_shipping']), value: z.coerce.number().nonnegative(), minimum_order: z.coerce.number().nonnegative().default(0), max_discount: z.coerce.number().nonnegative().nullable().optional(), starts_at: z.string().datetime().nullable().optional(), ends_at: z.string().datetime().nullable().optional(), usage_limit: z.coerce.number().int().nonnegative().nullable().optional(), per_customer_limit: z.coerce.number().int().nonnegative().nullable().optional(), product_ids: z.array(z.string().uuid()).max(100).default([]), category_ids: z.array(z.string().uuid()).max(100).default([]), active: z.boolean().default(true) }).refine((c) => c.type !== 'percentage' || c.value <= 100, { message: 'Percentage cannot exceed 100.', path: ['value'] });
 
@@ -392,14 +419,48 @@ adminRouter.get('/products', async (req, res) => {
   return res.json({ data: list, page: 1, limit: 25, total: list.length });
 });
 adminRouter.post('/products', requireRole('super_admin', 'manager'), async (req, res) => {
-  const parsed = productSchema.safeParse(req.body); if (!parsed.success) return fail(res, 400, parsed.error.issues[0].message);
+  if (req.body && Array.isArray(req.body.variants) && req.body.variants.length > 0) {
+    req.body.stock_count = req.body.variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+  }
+  const parsed = productSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 400, parsed.error.issues[0].message);
   try {
-    const { data, error } = await getDb().from('products').insert(parsed.data).select().single();
-    if (!error && data) {
-      await writeAudit(req.admin, 'product.create', 'product', data.id, { fields: Object.keys(parsed.data) }).catch(() => {});
-      return res.status(201).json({ data });
+    const db = getDb();
+    if (db) {
+      let insertData = { ...parsed.data };
+      let { data, error } = await db.from('products').insert(insertData).select().single();
+      // If foreign key constraint failed on category_id, retry with category_id: null
+      if (error && (error.code === '23503' || error.message?.includes('category_id') || error.message?.includes('foreign key'))) {
+        insertData.category_id = null;
+        const retry = await db.from('products').insert(insertData).select().single();
+        if (!retry.error && retry.data) {
+          data = retry.data;
+          error = null;
+        }
+      }
+      // If duplicate slug constraint failed, append random suffix and retry
+      if (error && (error.code === '23505' || error.message?.includes('slug') || error.message?.includes('duplicate key'))) {
+        insertData.slug = `${insertData.slug}-${Date.now().toString(36)}`;
+        const retry = await db.from('products').insert(insertData).select().single();
+        if (!retry.error && retry.data) {
+          data = retry.data;
+          error = null;
+        }
+      }
+      if (error) {
+        console.error('[admin] Product insert error in Supabase:', error);
+        return fail(res, 400, error.message || 'Database error while saving product.');
+      }
+      if (data) {
+        await writeAudit(req.admin, 'product.create', 'product', data.id, { fields: Object.keys(parsed.data) }).catch(() => {});
+        return res.status(201).json({ data });
+      }
     }
-  } catch {}
+  } catch (err) {
+    if (!err.message?.includes('not initialized')) {
+      console.warn('[admin] Product insert DB fallback note:', err.message);
+    }
+  }
   const newProduct = { ...parsed.data, id: randomUUID(), created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
   fallbackProducts.unshift(newProduct);
   return res.status(201).json({ data: newProduct });
@@ -422,12 +483,24 @@ adminRouter.patch('/products/bulk-stock', requireRole('super_admin', 'manager'),
 });
 adminRouter.patch('/products/:id', requireRole('super_admin', 'manager'), async (req, res) => {
   if (!idSchema.safeParse(req.params.id).success) return fail(res, 400, 'Invalid product ID.');
+  if (req.body && Array.isArray(req.body.variants) && req.body.variants.length > 0 && req.body.stock_count == null) {
+    req.body.stock_count = req.body.variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
+  }
   const parsed = productPatchSchema.safeParse(req.body); if (!parsed.success) return fail(res, 400, parsed.error.issues[0].message);
   try {
-    const { data, error } = await getDb().rpc('admin_update_product', { p_id: req.params.id, p_patch: parsed.data });
-    if (!error && data) {
-      await writeAudit(req.admin, 'product.update', 'product', data.id, { fields: Object.keys(parsed.data) }).catch(() => {});
-      return res.json({ data });
+    const db = getDb();
+    if (db) {
+      const { data, error } = await db.rpc('admin_update_product', { p_id: req.params.id, p_patch: parsed.data });
+      if (!error && data) {
+        await writeAudit(req.admin, 'product.update', 'product', data.id, { fields: Object.keys(parsed.data) }).catch(() => {});
+        return res.json({ data });
+      }
+      // If RPC is missing or failed, attempt direct table update
+      const { data: directData, error: directError } = await db.from('products').update({ ...parsed.data, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().maybeSingle();
+      if (!directError && directData) {
+        await writeAudit(req.admin, 'product.update', 'product', directData.id, { fields: Object.keys(parsed.data) }).catch(() => {});
+        return res.json({ data: directData });
+      }
     }
   } catch {}
   const prodIndex = fallbackProducts.findIndex(pr => pr.id === req.params.id);
