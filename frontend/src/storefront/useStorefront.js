@@ -201,6 +201,16 @@ export function useStorefront() {
         setAccountView('shipping');
         setGuest(false);
         setPanel('account');
+      } else if (current === '/admin' || current.startsWith('/admin')) {
+        if (typeof history !== 'undefined') history.replaceState(null, '', '/');
+        let adminToken = '';
+        try { adminToken = localStorage.getItem('algodon_admin_token') || ''; } catch {}
+        if (isAdmin || adminToken) {
+          setPanel('admin');
+        } else {
+          openAccount();
+          notify('Sign in with your verified store administrator email to access the admin dashboard.');
+        }
       } else if (!current || current === '/') {
         setPanel(null);
       }
@@ -210,7 +220,21 @@ export function useStorefront() {
     }
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, [authReady, user?.id]);
+  }, [authReady, user?.id, isAdmin]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && location.pathname.startsWith('/admin')) {
+      history.replaceState(null, '', '/');
+      let adminToken = '';
+      try { adminToken = localStorage.getItem('algodon_admin_token') || ''; } catch {}
+      if (isAdmin || adminToken) {
+        setPanel('admin');
+      } else {
+        openAccount();
+        notify('Sign in with your verified store administrator email to access the admin dashboard.');
+      }
+    }
+  }, [isAdmin]);
   useEffect(() => {
     if (authMode !== 'recovery' || !authReady) return;
     setPanel('account'); setGuest(false);

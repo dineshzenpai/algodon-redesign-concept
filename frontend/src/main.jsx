@@ -1,7 +1,7 @@
 import React, { Component, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
 
-const App = lazy(() => /^\/admin(?:\/|$)/.test(location.pathname) ? import('./admin/Admin.jsx') : import('./storefront/Storefront.jsx'));
+const App = lazy(() => import('./storefront/Storefront.jsx'));
 class ErrorBoundary extends Component {
   state = { failed:false };
   static getDerivedStateFromError() { return { failed:true }; }
