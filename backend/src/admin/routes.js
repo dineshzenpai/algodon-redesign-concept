@@ -372,34 +372,128 @@ adminRouter.get('/dashboard', requireRole('super_admin', 'manager'), async (req,
   const to = req.query.to ? new Date(String(req.query.to)) : new Date();
   const from = req.query.from ? new Date(String(req.query.from)) : new Date(to.getTime() - 30 * 86400000);
   if (!Number.isFinite(from.getTime()) || !Number.isFinite(to.getTime()) || from > to) return fail(res, 400, 'Choose a valid date range.');
+  
   try {
-    const { data, error } = await getDb().rpc('admin_dashboard_summary', { p_from: from.toISOString(), p_to: to.toISOString() });
-    if (!error && data) return res.json(data);
-  } catch {}
+    const db = getDb();
+    if (db) {
+      // 1. Try custom RPC first if available
+      try {
+        const { data: rpcData, error: rpcErr } = await db.rpc('admin_dashboard_summary', { p_from: from.toISOString(), p_to: to.toISOString() });
+        if (!rpcErr && rpcData && typeof rpcData === 'object' && Object.keys(rpcData).length > 0) {
+          return res.json(rpcData);
+        }
+      } catch {}
+
+      // 2. Compute LIVE, REAL-TIME statistics directly from Supabase tables
+      const [ordersRes, productsRes, categoriesRes] = await Promise.all([
+        db.from('order_intents')
+          .select('id, subtotal, discount, status, payment_status, created_at, items, customer')
+          .gte('created_at', from.toISOString())
+          .lte('created_at', to.toISOString())
+          .order('created_at', { ascending: false })
+          .limit(1000),
+        db.from('products')
+          .select('id, name, stock_count, low_stock_threshold, price, sale_price, category_id, published')
+          .limit(1000),
+        db.from('categories')
+          .select('id, name')
+          .limit(500)
+      ]);
+
+      const orders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
+      const products = Array.isArray(productsRes.data) ? productsRes.data : [];
+      const categories = Array.isArray(categoriesRes.data) ? categoriesRes.data : [];
+
+      // Valid orders (not cancelled/failed)
+      const validOrders = orders.filter(o => o.status !== 'Cancelled' && o.payment_status !== 'Failed');
+      const revenue = validOrders.reduce((sum, o) => sum + Math.max(0, (Number(o.subtotal) || 0) - (Number(o.discount) || 0)), 0);
+      const orderCount = orders.length;
+      const averageOrderValue = validOrders.length > 0 ? Math.round(revenue / validOrders.length) : 0;
+
+      // Unique customers & repeat customer rate
+      const customerEmails = orders.map(o => o.customer?.email?.toLowerCase()).filter(Boolean);
+      const emailCounts = {};
+      for (const e of customerEmails) { emailCounts[e] = (emailCounts[e] || 0) + 1; }
+      const newCustomers = Object.keys(emailCounts).length;
+      const repeatCustomers = Object.values(emailCounts).filter(c => c > 1).length;
+      const repeatCustomerRate = newCustomers > 0 ? Number((repeatCustomers / newCustomers).toFixed(2)) : 0;
+
+      // Order status breakdown
+      const ordersByStatus = {};
+      for (const o of orders) {
+        const s = o.status || 'Pending';
+        ordersByStatus[s] = (ordersByStatus[s] || 0) + 1;
+      }
+
+      // Daily revenue timeline across date range
+      const dayBuckets = {};
+      const dCursor = new Date(from);
+      while (dCursor <= to) {
+        dayBuckets[dCursor.toISOString().slice(0, 10)] = 0;
+        dCursor.setDate(dCursor.getDate() + 1);
+      }
+      for (const o of validOrders) {
+        const dKey = (o.created_at || '').slice(0, 10);
+        if (dayBuckets[dKey] !== undefined) {
+          dayBuckets[dKey] += Math.max(0, (Number(o.subtotal) || 0) - (Number(o.discount) || 0));
+        }
+      }
+      const revenueByDay = Object.entries(dayBuckets).map(([date, amount]) => ({ date, amount }));
+
+      // Top products sold from order items
+      const productCounts = {};
+      for (const o of validOrders) {
+        const items = Array.isArray(o.items) ? o.items : [];
+        for (const it of items) {
+          const pName = it.name || it.title || 'Product';
+          productCounts[pName] = (productCounts[pName] || 0) + (Number(it.qty || it.quantity) || 1);
+        }
+      }
+      const topProducts = Object.entries(productCounts)
+        .map(([name, quantity]) => ({ name, quantity }))
+        .sort((a, b) => b.quantity - a.quantity)
+        .slice(0, 8);
+
+      // Low stock alerts directly from actual database products
+      const lowStock = products
+        .filter(p => Number(p.stock_count || 0) <= Number(p.low_stock_threshold || 5))
+        .map(p => ({ id: p.id, name: p.name, stock_count: Number(p.stock_count || 0) }));
+
+      // Sales by category
+      const catMap = {};
+      for (const c of categories) { catMap[c.id] = { id: c.id, name: c.name, amount: 0 }; }
+      for (const o of validOrders) {
+        const items = Array.isArray(o.items) ? o.items : [];
+        for (const it of items) {
+          const matchedProd = products.find(p => p.id === it.id || p.name === it.name);
+          if (matchedProd?.category_id && catMap[matchedProd.category_id]) {
+            catMap[matchedProd.category_id].amount += (Number(it.price) || 0) * (Number(it.qty || it.quantity) || 1);
+          }
+        }
+      }
+      const salesByCategory = Object.values(catMap).filter(c => c.amount > 0);
+
+      return res.json({
+        kpis: { revenue, orders: orderCount, averageOrderValue, newCustomers, repeatCustomerRate },
+        revenueByDay,
+        ordersByStatus,
+        topProducts,
+        salesByCategory,
+        lowStock
+      });
+    }
+  } catch (err) {
+    console.error('[admin] Live dashboard error:', err.message);
+  }
+
+  // Database offline fallback with clean 0 state
   return res.json({
-    kpis: { revenue: 142500, orders: 75, averageOrderValue: 1900, newCustomers: 64, repeatCustomerRate: 0.17 },
-    revenueByDay: [
-      { date: '2026-10-24', amount: 3800 }, { date: '2026-10-25', amount: 5700 }, { date: '2026-10-26', amount: 9500 },
-      { date: '2026-10-27', amount: 7600 }, { date: '2026-10-28', amount: 11400 }, { date: '2026-10-29', amount: 9500 },
-      { date: '2026-10-30', amount: 13300 }, { date: '2026-10-31', amount: 15200 }, { date: '2026-11-01', amount: 11400 },
-      { date: '2026-11-02', amount: 13300 }, { date: '2026-11-03', amount: 17100 }, { date: '2026-11-04', amount: 11400 },
-      { date: '2026-11-05', amount: 9500 }, { date: '2026-11-06', amount: 13300 }
-    ],
-    ordersByStatus: { 'Confirmed': 28, 'Packed': 18, 'Shipped': 16, 'Delivered': 11, 'Pending': 2 },
-    topProducts: [
-      { id: 'a0000000-0000-4000-8000-000000000001', name: 'Golden-Brown Swirl', quantity: 28 },
-      { id: 'a0000000-0000-4000-8000-000000000002', name: 'Rajasthan Jali', quantity: 22 },
-      { id: 'a0000000-0000-4000-8000-000000000003', name: 'Rangeen Pakshee', quantity: 14 },
-      { id: 'a0000000-0000-4000-8000-000000000004', name: 'Kamal Ka Phool', quantity: 11 }
-    ],
-    salesByCategory: [
-      { name: 'Swirls & Waves', amount: 53200 },
-      { name: 'Geometric Jali', amount: 41800 },
-      { name: 'Flora & Fauna', amount: 47500 }
-    ],
-    lowStock: [
-      { id: 'a0000000-0000-4000-8000-000000000004', name: 'Kamal Ka Phool', stock_count: 6 }
-    ]
+    kpis: { revenue: 0, orders: 0, averageOrderValue: 0, newCustomers: 0, repeatCustomerRate: 0 },
+    revenueByDay: [],
+    ordersByStatus: {},
+    topProducts: [],
+    salesByCategory: [],
+    lowStock: []
   });
 });
 
@@ -418,18 +512,35 @@ adminRouter.get('/products', async (req, res) => {
   if (req.query.published === 'true') list = list.filter(p => p.published);
   return res.json({ data: list, page: 1, limit: 25, total: list.length });
 });
+
 adminRouter.post('/products', requireRole('super_admin', 'manager'), async (req, res) => {
   if (req.body && Array.isArray(req.body.variants) && req.body.variants.length > 0) {
     req.body.stock_count = req.body.variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
   }
   const parsed = productSchema.safeParse(req.body);
   if (!parsed.success) return fail(res, 400, parsed.error.issues[0].message);
+
   try {
     const db = getDb();
     if (db) {
       let insertData = { ...parsed.data };
+      
+      // 1. Verify category exists in DB; if not, set to null to avoid foreign key failure
+      if (insertData.category_id) {
+        const { data: catExists } = await db.from('categories').select('id').eq('id', insertData.category_id).maybeSingle();
+        if (!catExists) insertData.category_id = null;
+      }
+      
+      // 2. Ensure slug is unique
+      if (insertData.slug) {
+        const { data: slugExists } = await db.from('products').select('id').eq('slug', insertData.slug).maybeSingle();
+        if (slugExists) insertData.slug = `${insertData.slug}-${Date.now().toString(36)}`;
+      }
+
+      // 3. Attempt insert
       let { data, error } = await db.from('products').insert(insertData).select().single();
-      // If foreign key constraint failed on category_id, retry with category_id: null
+
+      // 4. Retry without category_id if foreign key constraint failed
       if (error && (error.code === '23503' || error.message?.includes('category_id') || error.message?.includes('foreign key'))) {
         insertData.category_id = null;
         const retry = await db.from('products').insert(insertData).select().single();
@@ -438,15 +549,30 @@ adminRouter.post('/products', requireRole('super_admin', 'manager'), async (req,
           error = null;
         }
       }
-      // If duplicate slug constraint failed, append random suffix and retry
-      if (error && (error.code === '23505' || error.message?.includes('slug') || error.message?.includes('duplicate key'))) {
-        insertData.slug = `${insertData.slug}-${Date.now().toString(36)}`;
-        const retry = await db.from('products').insert(insertData).select().single();
+
+      // 5. If optional columns don't exist in older table schemas, retry with core catalog columns
+      if (error && (error.code === '42703' || error.message?.includes('column'))) {
+        const coreInsert = {
+          name: insertData.name,
+          slug: insertData.slug,
+          description: insertData.description || '',
+          price: insertData.price,
+          sale_price: insertData.sale_price,
+          brand: insertData.brand || 'Algodon Organic',
+          stock_count: insertData.stock_count || 0,
+          out_of_stock_hidden: Boolean(insertData.out_of_stock_hidden),
+          images: insertData.images || [],
+          published: Boolean(insertData.published)
+        };
+        if (insertData.category_id) coreInsert.category_id = insertData.category_id;
+        if (insertData.variants) coreInsert.variants = insertData.variants;
+        const retry = await db.from('products').insert(coreInsert).select().single();
         if (!retry.error && retry.data) {
           data = retry.data;
           error = null;
         }
       }
+
       if (error) {
         console.error('[admin] Product insert error in Supabase:', error);
         return fail(res, 400, error.message || 'Database error while saving product.');
@@ -465,44 +591,117 @@ adminRouter.post('/products', requireRole('super_admin', 'manager'), async (req,
   fallbackProducts.unshift(newProduct);
   return res.status(201).json({ data: newProduct });
 });
+
 adminRouter.patch('/products/bulk-stock', requireRole('super_admin', 'manager'), async (req, res) => {
   const p = z.array(z.object({ id: idSchema, stock_count: z.number().int().nonnegative() })).min(1).max(500).safeParse(req.body.items);
   if (!p.success) return fail(res, 400, 'Provide product IDs and non-negative stock counts.');
   try {
-    const { error } = await getDb().rpc('admin_bulk_stock', { p_items: p.data });
-    if (!error) {
-      await writeAudit(req.admin, 'product.bulk_stock', 'product', null, { count: p.data.length }).catch(() => {});
-      return res.json({ updated: p.data.length });
+    const db = getDb();
+    if (db) {
+      // 1. Try RPC
+      try {
+        const { error: rpcErr } = await db.rpc('admin_bulk_stock', { p_items: p.data });
+        if (!rpcErr) {
+          await writeAudit(req.admin, 'product.bulk_stock', 'product', null, { count: p.data.length }).catch(() => {});
+          return res.json({ updated: p.data.length });
+        }
+      } catch {}
+
+      // 2. Direct database table update for each product
+      let updatedCount = 0;
+      for (const item of p.data) {
+        const { error: updErr } = await db
+          .from('products')
+          .update({ stock_count: item.stock_count, updated_at: new Date().toISOString() })
+          .eq('id', item.id);
+        if (!updErr) updatedCount++;
+      }
+      await writeAudit(req.admin, 'product.bulk_stock', 'product', null, { count: updatedCount }).catch(() => {});
+      return res.json({ updated: updatedCount });
     }
-  } catch {}
+  } catch (err) {
+    console.warn('[admin] Bulk stock update note:', err.message);
+  }
   for (const item of p.data) {
     const prod = fallbackProducts.find(pr => pr.id === item.id);
     if (prod) prod.stock_count = item.stock_count;
   }
   return res.json({ updated: p.data.length });
 });
+
 adminRouter.patch('/products/:id', requireRole('super_admin', 'manager'), async (req, res) => {
   if (!idSchema.safeParse(req.params.id).success) return fail(res, 400, 'Invalid product ID.');
   if (req.body && Array.isArray(req.body.variants) && req.body.variants.length > 0 && req.body.stock_count == null) {
     req.body.stock_count = req.body.variants.reduce((sum, v) => sum + (Number(v.stock) || 0), 0);
   }
-  const parsed = productPatchSchema.safeParse(req.body); if (!parsed.success) return fail(res, 400, parsed.error.issues[0].message);
+  const parsed = productPatchSchema.safeParse(req.body);
+  if (!parsed.success) return fail(res, 400, parsed.error.issues[0].message);
+
   try {
     const db = getDb();
     if (db) {
-      const { data, error } = await db.rpc('admin_update_product', { p_id: req.params.id, p_patch: parsed.data });
-      if (!error && data) {
-        await writeAudit(req.admin, 'product.update', 'product', data.id, { fields: Object.keys(parsed.data) }).catch(() => {});
-        return res.json({ data });
+      let patchData = { ...parsed.data };
+      
+      // 1. Verify category exists in DB; if not, set to null
+      if (patchData.category_id) {
+        const { data: catExists } = await db.from('categories').select('id').eq('id', patchData.category_id).maybeSingle();
+        if (!catExists) patchData.category_id = null;
       }
-      // If RPC is missing or failed, attempt direct table update
-      const { data: directData, error: directError } = await db.from('products').update({ ...parsed.data, updated_at: new Date().toISOString() }).eq('id', req.params.id).select().maybeSingle();
-      if (!directError && directData) {
-        await writeAudit(req.admin, 'product.update', 'product', directData.id, { fields: Object.keys(parsed.data) }).catch(() => {});
+      
+      // 2. Try RPC first if available
+      try {
+        const { data: rpcData, error: rpcErr } = await db.rpc('admin_update_product', { p_id: req.params.id, p_patch: patchData });
+        if (!rpcErr && rpcData) {
+          await writeAudit(req.admin, 'product.update', 'product', req.params.id, { fields: Object.keys(patchData) }).catch(() => {});
+          return res.json({ data: rpcData });
+        }
+      } catch {}
+
+      // 3. Direct table update
+      patchData.updated_at = new Date().toISOString();
+      let { data: directData, error: directError } = await db
+        .from('products')
+        .update(patchData)
+        .eq('id', req.params.id)
+        .select()
+        .maybeSingle();
+
+      // 4. Retry without category_id if foreign key constraint failed
+      if (directError && (directError.code === '23503' || directError.message?.includes('category_id') || directError.message?.includes('foreign key'))) {
+        patchData.category_id = null;
+        const retry = await db.from('products').update(patchData).eq('id', req.params.id).select().maybeSingle();
+        if (!retry.error && retry.data) {
+          directData = retry.data;
+          directError = null;
+        }
+      }
+
+      // 5. If optional columns don't exist in older table schemas, retry with core catalog columns
+      if (directError && (directError.code === '42703' || directError.message?.includes('column'))) {
+        const corePatch = {};
+        for (const k of ['name', 'slug', 'description', 'price', 'sale_price', 'brand', 'stock_count', 'out_of_stock_hidden', 'images', 'published', 'category_id', 'variants', 'updated_at']) {
+          if (patchData[k] !== undefined) corePatch[k] = patchData[k];
+        }
+        const retry = await db.from('products').update(corePatch).eq('id', req.params.id).select().maybeSingle();
+        if (!retry.error && retry.data) {
+          directData = retry.data;
+          directError = null;
+        }
+      }
+
+      if (directError) {
+        console.error('[admin] Product update error:', directError);
+        return fail(res, 400, directError.message || 'Database error while updating product.');
+      }
+      if (directData) {
+        await writeAudit(req.admin, 'product.update', 'product', directData.id, { fields: Object.keys(patchData) }).catch(() => {});
         return res.json({ data: directData });
       }
     }
-  } catch {}
+  } catch (err) {
+    console.error('[admin] Product update exception:', err);
+  }
+
   const prodIndex = fallbackProducts.findIndex(pr => pr.id === req.params.id);
   if (prodIndex !== -1) {
     fallbackProducts[prodIndex] = { ...fallbackProducts[prodIndex], ...parsed.data, updated_at: new Date().toISOString() };
@@ -561,10 +760,13 @@ adminRouter.get('/products/export', requireRole('super_admin', 'manager'), async
 // Categories
 adminRouter.get('/categories', requireRole('super_admin', 'manager'), async (req, res) => {
   try {
-    const { data, error } = await getDb().from('categories').select('*').order('sort_order').limit(500);
-    if (!error && data?.length) return res.json({ data });
+    const db = getDb();
+    if (db) {
+      const { data, error } = await db.from('categories').select('*').order('sort_order').limit(500);
+      if (!error && Array.isArray(data)) return res.json({ data });
+    }
   } catch {}
-  return res.json({ data: fallbackCategories });
+  return res.json({ data: [] });
 });
 adminRouter.post('/categories', requireRole('super_admin', 'manager'), async (req, res) => {
   const p = categorySchema.safeParse(req.body); if (!p.success) return fail(res, 400, p.error.issues[0].message);
@@ -861,7 +1063,7 @@ adminRouter.patch('/customers/:email/block', requireRole('super_admin', 'manager
 });
 
 // Images are accepted only after MIME, size and file-count checks; service role owns storage writes.
-adminRouter.post('/images', requireRole('super_admin', 'manager'), upload.array('images', 16), async (req, res) => {
+adminRouter.post('/images', requireRole('super_admin', 'manager'), upload.array('images', 20), async (req, res) => {
   if (!req.files?.length) return fail(res, 400, 'Choose at least one image.');
   if (req.files.some((file) => !imageSignatureMatches(file))) return fail(res, 400, 'One or more uploads are not valid image files.');
   const uploaded = [];

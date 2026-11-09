@@ -40,11 +40,11 @@ function ProductEditor({product={}}){
         size: String(v.size || '').trim().toUpperCase(),
         stock: Math.max(0, parseInt(v.stock ?? 0, 10))
       }))
-    : [
-        { size: 'S', stock: 12 },
-        { size: 'M', stock: 15 },
+    : (product.id ? [] : [
+        { size: 'S', stock: 10 },
+        { size: 'M', stock: 14 },
         { size: 'L', stock: 10 }
-      ];
+      ]);
 
   const [variantsList, setVariantsList] = useState(initialVariants);
   const [showJsonVariants, setShowJsonVariants] = useState(false);
@@ -199,6 +199,7 @@ function ProductEditor({product={}}){
       a.refresh();
     } catch (err) {
       setError(err.message || 'Failed to save product.');
+      a.notify(err.message || 'Failed to save product.', true);
     } finally {
       setSaving(false);
     }
