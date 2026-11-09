@@ -759,4 +759,19 @@ tr:last-child td {
   .search { width: 100%; }
 }
 
+/* Form controls & Placeholders */
+input::placeholder, textarea::placeholder {
+  color: var(--admin-ink-subtle) !important;
+  opacity: 0.85;
+}
+
+.loading-screen {
+  display: grid;
+  place-items: center;
+  padding: 48px 24px;
+  font: 500 15px Fraunces, serif;
+  color: var(--admin-ink-muted);
+  letter-spacing: 0.02em;
+}
+
 [hidden] { display: none !important; }

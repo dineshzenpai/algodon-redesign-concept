@@ -8,16 +8,22 @@ export function Badge({value}) {
   const text=String(value || 'Pending'), color=['Delivered','Paid','Confirmed'].includes(text)?'green':['Cancelled','Failed','Refunded'].includes(text)?'red':['Pending','Packed','Shipped'].includes(text)?'amber':'';
   return <span className={'badge '+color}>{text}</span>;
 }
-export function Field({name,label=name,value='',required=false,type='text',...props}) {
-  return <div className="field"><label htmlFor={'f-'+name}>{label}</label><input id={'f-'+name} name={name} type={type} defaultValue={value ?? ''} required={required} {...(type==='number'?{min:0,step:'.01'}:{})} {...props} /></div>;
+export function Field({name,label=name,value,defaultValue,required=false,type='text',...props}) {
+  const initVal = value !== undefined ? value : (defaultValue !== undefined ? defaultValue : '');
+  return <div className="field"><label htmlFor={'f-'+name}>{label}</label><input id={'f-'+name} name={name} type={type} defaultValue={initVal} required={required} {...(type==='number'?{min:0,step:props.step || '.01'}:{})} {...props} /></div>;
 }
-export function Select({name,label,value='',options,children,...props}) {
-  return <div className="field"><label htmlFor={'f-'+name}>{label}</label><select id={'f-'+name} name={name} defaultValue={value || ''} {...props}>{options?.map(option => <option key={option} value={option}>{option}</option>)}{children}</select></div>;
+export function Select({name,label,value,defaultValue,options,children,...props}) {
+  const initVal = value !== undefined ? value : (defaultValue !== undefined ? defaultValue : '');
+  return <div className="field"><label htmlFor={'f-'+name}>{label}</label><select id={'f-'+name} name={name} defaultValue={initVal} {...props}>{options?.map(option => <option key={option} value={option}>{option}</option>)}{children}</select></div>;
 }
-export function Textarea({name,label,value='',...props}) {
-  return <div className="field full"><label htmlFor={'f-'+name}>{label}</label><textarea id={'f-'+name} name={name} defaultValue={value || ''} rows="4" {...props} /></div>;
+export function Textarea({name,label,value,defaultValue,...props}) {
+  const initVal = value !== undefined ? value : (defaultValue !== undefined ? defaultValue : '');
+  return <div className="field full"><label htmlFor={'f-'+name}>{label}</label><textarea id={'f-'+name} name={name} defaultValue={initVal} rows="4" {...props} /></div>;
 }
-export function Check({name,label,checked}) { return <label className="checkline full"><input type="checkbox" name={name} defaultChecked={checked} /> {label}</label>; }
+export function Check({name,label,checked,defaultChecked,...props}) {
+  const isChecked = checked !== undefined ? checked : (defaultChecked !== undefined ? defaultChecked : false);
+  return <label className="checkline full"><input type="checkbox" name={name} defaultChecked={isChecked} {...props} /> {label}</label>;
+}
 export function Modal({children,close}) {
   const ref=useRef(null);
   useDialog(true,ref,close);

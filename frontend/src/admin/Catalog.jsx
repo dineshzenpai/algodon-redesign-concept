@@ -26,7 +26,7 @@ export function Products(){
   const tools=<><select id="productVisibility" aria-label="Product visibility" value={visibility} onChange={event=>{setVisibility(event.target.value);setPage(1);setSelected([]);}}><option value="">All products</option><option value="true">Published</option><option value="false">Drafts</option></select>{a.canEdit&&<><Button id="bulkStock" onClick={()=>stock(selected)}>Bulk stock</Button><Button id="productImport" onClick={()=>input.current.click()}>Import CSV</Button><input hidden type="file" ref={input} accept=".csv,text/csv" onChange={importCsv}/><Button id="productExport" onClick={exportCsv}>Export CSV</Button><Button primary id="addProduct" onClick={()=>a.openModal(<ProductEditor/>)}>Add product</Button></>}</>;
   return <ResourceState resource={resource}>{result=><TablePage title="Products" columns={['Product','Price','Stock','Visibility','Actions']} search={search} setSearch={setSearch} page={page} setPage={setPage} pagination={result} tools={tools} rows={result.data.map(product=><tr key={product.id}><td>{a.canEdit&&<input type="checkbox" aria-label={'Select '+product.name} checked={selected.includes(product.id)} onChange={event=>setSelected(ids=>event.target.checked?[...ids,product.id]:ids.filter(id=>id!==product.id))}/>}<div className="cell-title">{product.name}</div><div className="cell-sub">{product.sku||product.slug}</div></td><td>{money(product.sale_price??product.price)}</td><td>{product.stock_count}</td><td><Badge value={product.published?'Published':'Draft'}/></td><td><div className="row-actions">{a.canEdit&&<><Button data-edit-product={product.id} onClick={()=>a.openModal(<ProductEditor product={product}/>)}>Edit</Button><Button onClick={()=>stock([product.id], product.stock_count)}>Stock</Button><Button onClick={()=>action('/products/'+product.id+'/duplicate')}>Copy</Button><Button danger onClick={()=>{if(confirm('Delete this product? This cannot be undone.'))action('/products/'+product.id,'DELETE');}}>Delete</Button></>}</div></td></tr>)}/>}</ResourceState>;
 }
-function StockEditor({ ids, initialStock = 10 }) {
+export function StockEditor({ ids, initialStock = 10 }) {
   const a = useAdmin();
   const [val, setVal] = useState(initialStock);
   const [saving, setSaving] = useState(false);
@@ -57,7 +57,7 @@ function StockEditor({ ids, initialStock = 10 }) {
     </>
   );
 }
-function ProductEditor({product={}}){
+export function ProductEditor({product={}}){
   const a=useAdmin(),
     resource=useResource('/categories'),
     categories = Array.isArray(resource?.data?.data) ? resource.data.data : (Array.isArray(resource?.data) ? resource.data : []),

@@ -28,7 +28,7 @@ function printOrder(order,packing){
   flushSync(()=>root.render(<><h1>Algodon Organic</h1><h2>{packing?'Packing slip':'Order invoice'} · {order.id.slice(0,8)}</h2><p>{customer.name} · {customer.email} · {customer.phone}</p><p>{[customer.address1,customer.address2,customer.city,customer.state,customer.pin].filter(Boolean).join(', ')}</p><table><thead><tr><th>Product</th><th>Size</th><th>Qty</th><th>Price</th></tr></thead><tbody>{(order.items||[]).map((item,index)=><tr key={index}><td>{item.name}</td><td>{item.size}</td><td>{item.qty}</td><td>{money(item.price)}</td></tr>)}</tbody></table>{!packing&&<p className="total">Subtotal {money(order.subtotal)}<br/>Discount {money(order.discount)}<br/><b>Total {money(order.subtotal-order.discount)}</b></p>}</>));
   win.print();
 }
-function OrderEditor({id}){
+export function OrderEditor({id}){
   const a=useAdmin(),resource=useResource('/orders/'+id),[saving,setSaving]=useState(false),[error,setError]=useState('');
   async function submit(event){
     event.preventDefault();setSaving(true);setError('');const f=event.currentTarget.elements;

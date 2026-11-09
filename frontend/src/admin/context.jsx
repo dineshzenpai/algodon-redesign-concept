@@ -18,7 +18,12 @@ export function useResource(path, { pollInterval = 3500 } = {}) {
     }
     try {
       const data = await api(path);
-      setResult({ data, error: '', loading: false });
+      setResult(prev => {
+        if (isBackground && JSON.stringify(prev.data) === JSON.stringify(data)) {
+          return prev;
+        }
+        return { data, error: '', loading: false };
+      });
     } catch (error) {
       if (!isBackground) {
         setResult(prev => ({ ...prev, error: error.message, loading: false }));
