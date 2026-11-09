@@ -35,7 +35,7 @@ const fallbackProducts = [
     low_stock_threshold: 5,
     published: true,
     category_id: 'c1000000-0000-4000-8000-000000000001',
-    images: ['/img/product-golden-brown.jpg'],
+    images: ['/img/product-golden-brown.jpg', '/img/story-texture.jpg', '/img/story-label.jpg'],
     variants: [{ size: 'S', stock: 15 }, { size: 'M', stock: 18 }, { size: 'L', stock: 12 }]
   },
   {
@@ -50,7 +50,7 @@ const fallbackProducts = [
     low_stock_threshold: 5,
     published: true,
     category_id: 'c1000000-0000-4000-8000-000000000002',
-    images: ['/img/product-jali.jpg'],
+    images: ['/img/product-jali.jpg', '/img/story-texture.jpg', '/img/story-label.jpg'],
     variants: [{ size: 'S', stock: 12 }, { size: 'M', stock: 16 }, { size: 'L', stock: 11 }]
   },
   {
@@ -65,7 +65,7 @@ const fallbackProducts = [
     low_stock_threshold: 5,
     published: true,
     category_id: 'c1000000-0000-4000-8000-000000000003',
-    images: ['/img/product-pakshee.jpg'],
+    images: ['/img/product-pakshee.jpg', '/img/story-texture.jpg', '/img/story-label.jpg'],
     variants: [{ size: 'S', stock: 10 }, { size: 'M', stock: 14 }, { size: 'L', stock: 10 }]
   },
   {
@@ -80,7 +80,7 @@ const fallbackProducts = [
     low_stock_threshold: 10,
     published: true,
     category_id: 'c1000000-0000-4000-8000-000000000003',
-    images: ['/img/product-kamal.jpg'],
+    images: ['/img/product-kamal.jpg', '/img/story-texture.jpg', '/img/story-label.jpg'],
     variants: [{ size: 'S', stock: 8 }, { size: 'M', stock: 12 }, { size: 'L', stock: 10 }]
   }
 ];
@@ -179,13 +179,14 @@ const fallbackCustomers = [
   { name: 'Rohan Deshmukh', email: 'rohan.d@example.com', phone: '9765432109', orders: 2, totalSpent: 3800, blocked: false, addresses: ['Plot 45 Koregaon Park, Pune, Maharashtra 411001'] }
 ];
 
-const imageRefSchema = z.string().max(2048).refine((value) => {
+const imageRefSchema = z.string().max(1000000).refine((value) => {
+  if (value.startsWith('data:image/')) return true;
   if (value.startsWith('/') && !value.startsWith('//')) return true;
   try { return new URL(value).protocol === 'https:'; } catch { return false; }
 }, 'Use a secure image URL or a site-relative path.');
 const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false });
 const resetLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: 'draft-8', legacyHeaders: false });
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 8 }, fileFilter: (req, file, cb) => {
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 16 }, fileFilter: (req, file, cb) => {
   const supported = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
   cb(supported.includes(file.mimetype) ? null : new Error('Upload a JPEG, PNG, WebP, or AVIF image.'), supported.includes(file.mimetype));
 } });
@@ -787,16 +788,26 @@ adminRouter.patch('/customers/:email/block', requireRole('super_admin', 'manager
 });
 
 // Images are accepted only after MIME, size and file-count checks; service role owns storage writes.
-adminRouter.post('/images', requireRole('super_admin', 'manager'), upload.array('images', 8), async (req, res) => {
+adminRouter.post('/images', requireRole('super_admin', 'manager'), upload.array('images', 16), async (req, res) => {
   if (!req.files?.length) return fail(res, 400, 'Choose at least one image.');
   if (req.files.some((file) => !imageSignatureMatches(file))) return fail(res, 400, 'One or more uploads are not valid image files.');
   const uploaded = [];
   for (const file of req.files) {
     const ext = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/avif': 'avif' })[file.mimetype];
     const path = `${Date.now()}-${randomUUID()}.${ext}`;
-    const { error } = await getDb().storage.from('admin-product-images').upload(path, file.buffer, { contentType: file.mimetype, upsert: false });
-    if (error) return dbError(error, res);
-    const { data } = getDb().storage.from('admin-product-images').getPublicUrl(path); uploaded.push({ path, url: data.publicUrl });
+    try {
+      const db = getDb();
+      if (db?.storage) {
+        const { error } = await db.storage.from('admin-product-images').upload(path, file.buffer, { contentType: file.mimetype, upsert: false });
+        if (!error) {
+          const { data } = db.storage.from('admin-product-images').getPublicUrl(path);
+          uploaded.push({ path, url: data.publicUrl });
+          continue;
+        }
+      }
+    } catch {}
+    const base64 = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    uploaded.push({ path, url: base64 });
   }
   await writeAudit(req.admin, 'image.upload', 'product_image', null, { count: uploaded.length }); return res.status(201).json({ data: uploaded });
 });

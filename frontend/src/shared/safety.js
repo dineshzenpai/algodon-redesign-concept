@@ -6,6 +6,7 @@ export function escapeHtml(value) {
 
 export function safeImageUrl(value) {
   if (typeof value !== 'string' || !value.trim()) return '';
+  if (value.startsWith('data:image/')) return value;
   try {
     const url = new URL(value, 'https://storefront.invalid/');
     return ['http:', 'https:'].includes(url.protocol) ? value : '';

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { safeImageUrl } from '../shared/safety.js';
 
 export function ProductCard({product, s}) {
@@ -6,11 +6,25 @@ export function ProductCard({product, s}) {
   const [hint, setHint] = useState('');
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [imgIndex, setImgIndex] = useState(0);
 
   const price = Number(product.sale_price ?? product.price);
   const was = product.was ?? (product.sale_price != null && product.sale_price < product.price ? product.price : null);
   const sizes = (product.variants?.length ? product.variants.map(item => item.size) : ['S','M','L']).filter(size => size !== 'XL');
-  const image = safeImageUrl(product.images?.[0]) || '/img/product-golden-brown.jpg';
+  const rawImages = (product.images?.length ? product.images : [product.img || '/img/product-golden-brown.jpg']);
+  const images = rawImages.map(safeImageUrl).filter(Boolean);
+  const currentImg = images[imgIndex % images.length] || images[0] || '/img/product-golden-brown.jpg';
+  const hasMultiplePics = images.length > 1;
+
+  function nextPic(e) {
+    if (e) e.stopPropagation();
+    setImgIndex(i => (i + 1) % images.length);
+  }
+
+  function prevPic(e) {
+    if (e) e.stopPropagation();
+    setImgIndex(i => (i - 1 + images.length) % images.length);
+  }
 
   async function save() {
     if (!s.user) {
@@ -41,10 +55,115 @@ export function ProductCard({product, s}) {
   }
 
   return (
-    <article className="card" id={'product-' + product.id} data-product={product.id} data-name={product.name} data-price={price} data-img={image}>
-      <figure onClick={() => s.openProductModal?.(product)} style={{ cursor: 'pointer' }} title="Click to view full product details">
+    <article className="card" id={'product-' + product.id} data-product={product.id} data-name={product.name} data-price={price} data-img={currentImg}>
+      <figure onClick={() => s.openProductModal?.(product)} style={{ cursor: 'pointer', position: 'relative' }} title="Click to view full product details">
         {product.badge && <span className="badge-sale">{product.badge}</span>}
-        <img src={image} alt={product.alt || product.name} loading="lazy" />
+        <img src={currentImg} alt={product.alt || product.name} loading="lazy" />
+
+        {hasMultiplePics && (
+          <>
+            <span
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                zIndex: 3,
+                background: 'rgba(20, 15, 10, 0.72)',
+                color: '#fff',
+                fontSize: '0.68rem',
+                fontWeight: 700,
+                padding: '2px 7px',
+                borderRadius: '999px',
+                backdropFilter: 'blur(4px)'
+              }}
+            >
+              {imgIndex + 1}/{images.length}
+            </span>
+
+            <button
+              type="button"
+              className="card-img-nav prev"
+              aria-label="Previous picture"
+              title="View previous picture"
+              onClick={prevPic}
+            >
+              ‹
+            </button>
+
+            <button
+              type="button"
+              className="card-img-nav next"
+              aria-label="Next picture"
+              title="View next picture"
+              onClick={nextPic}
+            >
+              ›
+            </button>
+
+            <div
+              title="Click next picture"
+              onClick={nextPic}
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: '35%',
+                height: '100%',
+                zIndex: 2,
+                cursor: 'e-resize'
+              }}
+            />
+
+            <div
+              title="Click previous picture"
+              onClick={prevPic}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '35%',
+                height: '100%',
+                zIndex: 2,
+                cursor: 'w-resize'
+              }}
+            />
+
+            <div
+              style={{
+                position: 'absolute',
+                bottom: '10px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                gap: '5px',
+                zIndex: 4,
+                background: 'rgba(20, 15, 10, 0.45)',
+                padding: '3px 7px',
+                borderRadius: '999px',
+                backdropFilter: 'blur(4px)'
+              }}
+            >
+              {images.map((_, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  aria-label={`View picture ${idx + 1}`}
+                  onClick={(e) => { e.stopPropagation(); setImgIndex(idx); }}
+                  style={{
+                    width: idx === imgIndex ? '14px' : '5px',
+                    height: '5px',
+                    borderRadius: '999px',
+                    background: idx === imgIndex ? 'var(--accent)' : 'rgba(255,255,255,0.7)',
+                    border: 'none',
+                    padding: 0,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </figure>
       <div className="card-body">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -115,18 +234,40 @@ export function ProductDetailModal({s}) {
   const [selectedSize, setSelectedSize] = useState('M');
   const [activeTab, setActiveTab] = useState('specs'); // 'specs' | 'craft' | 'reviews'
   const [modalHint, setModalHint] = useState('');
+  const [modalImgIndex, setModalImgIndex] = useState(0);
 
   if (!product) return null;
 
   const price = Number(product.sale_price ?? product.price);
   const was = product.was ?? (product.sale_price != null && product.sale_price < product.price ? product.price : null);
-  const image = safeImageUrl(product.images?.[0]) || '/img/product-golden-brown.jpg';
-  const variants = (product.variants || [
-    { size: 'S', stock: 15, chest: '38"', length: '28.5"', sleeve: '24"' },
-    { size: 'M', stock: 18, chest: '40"', length: '29.5"', sleeve: '24.5"' },
-    { size: 'L', stock: 12, chest: '42"', length: '30.5"', sleeve: '25"' }
-  ]).filter(v => v.size !== 'XL');
-  const currentVariant = variants.find(v => v.size === selectedSize) || variants[0];
+  const rawImages = (product.images?.length ? product.images : [
+    product.img || '/img/product-golden-brown.jpg',
+    '/img/story-texture.jpg',
+    '/img/story-label.jpg'
+  ]);
+  const images = rawImages.map(safeImageUrl).filter(Boolean);
+  const currentImg = images[modalImgIndex % images.length] || images[0] || '/img/product-golden-brown.jpg';
+  const hasMultiplePics = images.length > 1;
+
+  function nextModalPic(e) {
+    if (e) e.stopPropagation();
+    setModalImgIndex(i => (i + 1) % images.length);
+  }
+
+  function prevModalPic(e) {
+    if (e) e.stopPropagation();
+    setModalImgIndex(i => (i - 1 + images.length) % images.length);
+  }
+
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'ArrowRight') setModalImgIndex(i => (i + 1) % images.length);
+      else if (e.key === 'ArrowLeft') setModalImgIndex(i => (i - 1 + images.length) % images.length);
+      else if (e.key === 'Escape') s.closeProductModal();
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [images.length, s]);
 
   function handleAddToCart() {
     const err = s.addProduct(product, selectedSize);
@@ -183,21 +324,165 @@ export function ProductDetailModal({s}) {
 
         {/* Product Media Column */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
-          <div style={{ borderRadius: '8px', overflow: 'hidden', background: 'var(--card)', position: 'relative' }}>
-            {product.badge && <span className="badge-sale" style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 2 }}>{product.badge}</span>}
-            <img src={image} alt={product.alt || product.name} style={{ width: '100%', height: '420px', objectFit: 'cover', display: 'block' }} />
+          <div
+            className="modal-gallery-main"
+            style={{
+              borderRadius: '8px',
+              overflow: 'hidden',
+              background: 'var(--card)',
+              position: 'relative',
+              height: '420px',
+              userSelect: 'none'
+            }}
+          >
+            {product.badge && <span className="badge-sale" style={{ position: 'absolute', top: '12px', left: '12px', zIndex: 3 }}>{product.badge}</span>}
+            
+            {hasMultiplePics && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  right: '12px',
+                  zIndex: 3,
+                  background: 'rgba(20, 15, 10, 0.72)',
+                  color: '#fff',
+                  fontSize: '0.74rem',
+                  fontWeight: 700,
+                  padding: '3px 9px',
+                  borderRadius: '999px',
+                  backdropFilter: 'blur(4px)'
+                }}
+              >
+                {modalImgIndex + 1} / {images.length}
+              </span>
+            )}
+
+            <img
+              src={currentImg}
+              alt={product.alt || product.name}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
+
+            {hasMultiplePics && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous picture"
+                  className="gallery-nav-btn prev"
+                  title="View previous picture"
+                  onClick={prevModalPic}
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '12px',
+                    transform: 'translateY(-50%)',
+                    zIndex: 4,
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: 'rgba(20, 15, 10, 0.75)',
+                    color: '#fff',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    fontSize: '1.5rem',
+                    display: 'grid',
+                    placeItems: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    backdropFilter: 'blur(4px)'
+                  }}
+                >
+                  ‹
+                </button>
+
+                <button
+                  type="button"
+                  aria-label="Next picture"
+                  className="gallery-nav-btn next"
+                  title="View next picture (click next)"
+                  onClick={nextModalPic}
+                  style={{
+                    position: 'absolute',
+                    top: '50%',
+                    right: '12px',
+                    transform: 'translateY(-50%)',
+                    zIndex: 4,
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '50%',
+                    background: 'rgba(20, 15, 10, 0.75)',
+                    color: '#fff',
+                    border: '1px solid rgba(255, 255, 255, 0.25)',
+                    fontSize: '1.5rem',
+                    display: 'grid',
+                    placeItems: 'center',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    backdropFilter: 'blur(4px)'
+                  }}
+                >
+                  ›
+                </button>
+
+                <div
+                  title="Click to view next picture"
+                  onClick={nextModalPic}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    width: '50%',
+                    height: '100%',
+                    cursor: 'e-resize',
+                    zIndex: 2
+                  }}
+                />
+                <div
+                  title="Click to view previous picture"
+                  onClick={prevModalPic}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '50%',
+                    height: '100%',
+                    cursor: 'w-resize',
+                    zIndex: 2
+                  }}
+                />
+              </>
+            )}
           </div>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <div style={{ border: '2px solid var(--accent)', borderRadius: '6px', overflow: 'hidden', width: '64px', height: '76px' }}>
-              <img src={image} alt="Thumbnail 1" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+
+          {/* Interactive Thumbnails Strip */}
+          {hasMultiplePics && (
+            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
+              {images.map((imgUrl, idx) => (
+                <button
+                  type="button"
+                  key={imgUrl + idx}
+                  aria-label={`View picture ${idx + 1}`}
+                  onClick={() => setModalImgIndex(idx)}
+                  style={{
+                    border: idx === modalImgIndex ? '2px solid var(--accent)' : '1px solid var(--line)',
+                    borderRadius: '6px',
+                    overflow: 'hidden',
+                    width: '68px',
+                    height: '80px',
+                    padding: 0,
+                    background: 'var(--card)',
+                    cursor: 'pointer',
+                    opacity: idx === modalImgIndex ? 1 : 0.7,
+                    transition: 'all 0.2s ease',
+                    transform: idx === modalImgIndex ? 'scale(1.04)' : 'none',
+                    flexShrink: 0
+                  }}
+                >
+                  <img src={imgUrl} alt={`Thumbnail ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </button>
+              ))}
             </div>
-            <div style={{ border: '1px solid var(--line)', borderRadius: '6px', overflow: 'hidden', width: '64px', height: '76px', opacity: 0.85 }}>
-              <img src="/img/story-texture.jpg" alt="Fabric close-up" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </div>
-            <div style={{ border: '1px solid var(--line)', borderRadius: '6px', overflow: 'hidden', width: '64px', height: '76px', opacity: 0.85 }}>
-              <img src="/img/story-label.jpg" alt="Collar label and buttons" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            </div>
-          </div>
+          )}
+
           <div style={{ background: 'rgba(196, 92, 60, 0.08)', padding: '12px 14px', borderRadius: '6px', fontSize: '0.82rem', color: 'var(--ink)' }}>
             <strong>100% GOTS Certified Organic Cotton</strong> · Zero synthetic microplastics · Coconut shell buttons.
           </div>
