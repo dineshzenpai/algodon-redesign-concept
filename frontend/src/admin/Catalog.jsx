@@ -9,7 +9,10 @@ export function Products(){
   const query=new URLSearchParams({page:String(page),limit:'25',q:search});if(visibility)query.set('published',visibility);
   const resource=useResource('/products?'+query);
   async function action(path,method='POST',body={}){try{await a.api(path,{method,body:JSON.stringify(body)});a.notify('Products updated.');a.refresh();setSelected([]);}catch(error){a.notify(error.message,true);}}
-  async function stock(ids){if(!ids.length)return a.notify('Select products first.',true);const value=prompt('Set stock count for '+ids.length+' products');if(value===null)return;const count=Number(value);if(!Number.isInteger(count)||count<0)return a.notify('Enter a non-negative whole number.',true);await action('/products/bulk-stock','PATCH',{items:ids.map(id=>({id,stock_count:count}))});}
+  function stock(ids, currentStock = 10){
+    if(!ids.length)return a.notify('Select products first.',true);
+    a.openModal(<StockEditor ids={ids} initialStock={currentStock} />);
+  }
   async function importCsv(event){
     const file=event.target.files[0];if(!file)return;
     try{
@@ -21,7 +24,38 @@ export function Products(){
   }
   async function exportCsv(){try{csvDownload('algodon-products.csv',(await a.api('/products/export')).data);}catch(error){a.notify(error.message,true);}}
   const tools=<><select id="productVisibility" aria-label="Product visibility" value={visibility} onChange={event=>{setVisibility(event.target.value);setPage(1);setSelected([]);}}><option value="">All products</option><option value="true">Published</option><option value="false">Drafts</option></select>{a.canEdit&&<><Button id="bulkStock" onClick={()=>stock(selected)}>Bulk stock</Button><Button id="productImport" onClick={()=>input.current.click()}>Import CSV</Button><input hidden type="file" ref={input} accept=".csv,text/csv" onChange={importCsv}/><Button id="productExport" onClick={exportCsv}>Export CSV</Button><Button primary id="addProduct" onClick={()=>a.openModal(<ProductEditor/>)}>Add product</Button></>}</>;
-  return <ResourceState resource={resource}>{result=><TablePage title="Products" columns={['Product','Price','Stock','Visibility','Actions']} search={search} setSearch={setSearch} page={page} setPage={setPage} pagination={result} tools={tools} rows={result.data.map(product=><tr key={product.id}><td>{a.canEdit&&<input type="checkbox" aria-label={'Select '+product.name} checked={selected.includes(product.id)} onChange={event=>setSelected(ids=>event.target.checked?[...ids,product.id]:ids.filter(id=>id!==product.id))}/>}<div className="cell-title">{product.name}</div><div className="cell-sub">{product.sku||product.slug}</div></td><td>{money(product.sale_price??product.price)}</td><td>{product.stock_count}</td><td><Badge value={product.published?'Published':'Draft'}/></td><td><div className="row-actions">{a.canEdit&&<><Button data-edit-product={product.id} onClick={()=>a.openModal(<ProductEditor product={product}/>)}>Edit</Button><Button onClick={()=>stock([product.id])}>Stock</Button><Button onClick={()=>action('/products/'+product.id+'/duplicate')}>Copy</Button><Button danger onClick={()=>{if(confirm('Delete this product? This cannot be undone.'))action('/products/'+product.id,'DELETE');}}>Delete</Button></>}</div></td></tr>)}/>}</ResourceState>;
+  return <ResourceState resource={resource}>{result=><TablePage title="Products" columns={['Product','Price','Stock','Visibility','Actions']} search={search} setSearch={setSearch} page={page} setPage={setPage} pagination={result} tools={tools} rows={result.data.map(product=><tr key={product.id}><td>{a.canEdit&&<input type="checkbox" aria-label={'Select '+product.name} checked={selected.includes(product.id)} onChange={event=>setSelected(ids=>event.target.checked?[...ids,product.id]:ids.filter(id=>id!==product.id))}/>}<div className="cell-title">{product.name}</div><div className="cell-sub">{product.sku||product.slug}</div></td><td>{money(product.sale_price??product.price)}</td><td>{product.stock_count}</td><td><Badge value={product.published?'Published':'Draft'}/></td><td><div className="row-actions">{a.canEdit&&<><Button data-edit-product={product.id} onClick={()=>a.openModal(<ProductEditor product={product}/>)}>Edit</Button><Button onClick={()=>stock([product.id], product.stock_count)}>Stock</Button><Button onClick={()=>action('/products/'+product.id+'/duplicate')}>Copy</Button><Button danger onClick={()=>{if(confirm('Delete this product? This cannot be undone.'))action('/products/'+product.id,'DELETE');}}>Delete</Button></>}</div></td></tr>)}/>}</ResourceState>;
+}
+function StockEditor({ ids, initialStock = 10 }) {
+  const a = useAdmin();
+  const [val, setVal] = useState(initialStock);
+  const [saving, setSaving] = useState(false);
+  async function submit(e) {
+    e.preventDefault();
+    const count = parseInt(val, 10);
+    if (isNaN(count) || count < 0) return a.notify('Enter a valid non-negative whole number.', true);
+    setSaving(true);
+    try {
+      await a.api('/products/bulk-stock', { method: 'PATCH', body: JSON.stringify({ items: ids.map(id => ({ id, stock_count: count })) }) });
+      a.closeModal();
+      a.refresh();
+      a.notify(`Updated stock for ${ids.length} product${ids.length > 1 ? 's' : ''}.`);
+    } catch (err) {
+      a.notify(err.message, true);
+    } finally {
+      setSaving(false);
+    }
+  }
+  return (
+    <>
+      <h2>Set Stock Quantity</h2>
+      <p className="muted small">Updating inventory for {ids.length} product{ids.length > 1 ? 's' : ''}.</p>
+      <form id="stockForm" onSubmit={submit}>
+        <Field name="stock_count" label="New Total Stock Count" type="number" min="0" step="1" value={val} onChange={e => setVal(e.target.value)} required />
+        <ModalActions saving={saving} label="Update Stock" />
+      </form>
+    </>
+  );
 }
 function ProductEditor({product={}}){
   const a=useAdmin(),

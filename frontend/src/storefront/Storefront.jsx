@@ -11,9 +11,9 @@ const Admin = lazy(() => import('../admin/Admin.jsx'));
 export default function Storefront() {
   const s = useStorefront(), dialog = useRef(null);
   useEffect(() => {
-    dialog.current = s.panel ? document.getElementById({ account: 'accountDrawer', cart: 'cartDrawer', size: 'sizeGuideModal', search: 'searchOverlay', admin: 'adminModalOverlay' }[s.panel]) : null;
+    dialog.current = (s.panel && s.panel !== 'admin') ? document.getElementById({ account: 'accountDrawer', cart: 'cartDrawer', size: 'sizeGuideModal', search: 'searchOverlay' }[s.panel]) : null;
   }, [s.panel]);
-  useDialog(s.panel, dialog, s.close);
+  useDialog(s.panel && s.panel !== 'admin', dialog, s.close);
 
   useEffect(() => {
     const animation = animate('.hero-copy h1, .hero-copy .eyebrow, .hero-copy p, .hero-actions', { opacity: [0, 1], y: [30, 0] }, { delay: stagger(.15), duration: .8, ease: [.22, 1, .36, 1] });

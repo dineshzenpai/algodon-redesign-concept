@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useAdmin } from './context.jsx';
 import { useDialog } from '../shared/useDialog.js';
 
-export const Button=({children,primary=false,danger=false,...props}) => <button type="button" className={'btn'+(primary?' primary':'')+(danger?' danger':'')} {...props}>{children}</button>;
+export const Button=({children,primary=false,danger=false,className='',...props}) => <button type="button" className={`btn${primary?' primary':''}${danger?' danger':''}${className?' '+className:''}`} {...props}>{children}</button>;
 export function Badge({value}) {
   const text=String(value || 'Pending'), color=['Delivered','Paid','Confirmed'].includes(text)?'green':['Cancelled','Failed','Refunded'].includes(text)?'red':['Pending','Packed','Shipped'].includes(text)?'amber':'';
   return <span className={'badge '+color}>{text}</span>;
@@ -21,7 +21,40 @@ export function Check({name,label,checked}) { return <label className="checkline
 export function Modal({children,close}) {
   const ref=useRef(null);
   useDialog(true,ref,close);
-  return createPortal(<div className="modal-backdrop" id="activeModal" ref={ref} onClick={event => { if(event.target===event.currentTarget)close(); }}><section className="modal" role="dialog" aria-modal="true" aria-label="Store management">{children}</section></div>,document.body);
+  return createPortal(
+    <div
+      className="modal-backdrop"
+      id="activeModal"
+      ref={ref}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        zIndex: 99999,
+        background: 'rgba(0, 0, 0, 0.72)',
+        display: 'grid',
+        placeItems: 'center',
+        padding: '20px',
+        backdropFilter: 'blur(3px)'
+      }}
+      onClick={event => { if(event.target===event.currentTarget)close(); }}
+    >
+      <section
+        className="modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Store management"
+        style={{
+          position: 'relative',
+          zIndex: 100000,
+          background: 'var(--admin-paper, #ffffff)',
+          color: 'var(--admin-ink, #1e1914)'
+        }}
+      >
+        {children}
+      </section>
+    </div>,
+    document.body
+  );
 }
 export function ModalActions({saving=false,label='Save',children}) {
   const {closeModal}=useAdmin();

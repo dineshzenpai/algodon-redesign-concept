@@ -739,7 +739,10 @@ adminRouter.post('/products/:id/duplicate', requireRole('super_admin', 'manager'
   try {
     const { data: old, error } = await getDb().from('products').select('*').eq('id', req.params.id).maybeSingle();
     if (!error && old) {
-      const copy = { ...old, id: undefined, name: `${old.name} (copy)`, slug: `${old.slug}-copy-${Date.now().toString(36)}`, sku: null, published: false, created_at: undefined, updated_at: undefined };
+      const copy = { ...old, name: `${old.name} (copy)`, slug: `${old.slug}-copy-${Date.now().toString(36)}`, sku: null, published: false };
+      delete copy.id;
+      delete copy.created_at;
+      delete copy.updated_at;
       const { data, error: insertError } = await getDb().from('products').insert(copy).select().single();
       if (!insertError) return res.status(201).json({ data });
     }
