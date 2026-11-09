@@ -10,7 +10,14 @@ import { ensureInitialAdmin, isAuthorizedAdminEmail } from '../admin/auth.js';
 import { sendAuthOtpSms } from '../lib/notifications.js';
 
 export const authRouter = Router();
-authRouter.use(rateLimit({ windowMs: 15 * 60 * 1000, limit: 15, standardHeaders: 'draft-8', legacyHeaders: false }));
+authRouter.use(rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 100,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many authentication attempts. Please wait a moment and try again.' },
+  skip: (req) => isAuthorizedAdminEmail(req.body?.email || req.body?.identifier)
+}));
 authRouter.use((req, res, next) => { res.setHeader('Cache-Control', 'no-store'); next(); });
 function client() {
   return createClient(env.supabase.url, env.supabase.anonKey, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });

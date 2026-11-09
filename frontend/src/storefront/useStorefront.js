@@ -287,7 +287,78 @@ export function useStorefront() {
         const result = await request('/api/auth/password-reset',{method:'POST',body:JSON.stringify({email:data.email})});
         setAuthError(result.message); return;
       }
-      const result = await request('/api/auth/'+(authMode === 'signup' ? 'signup' : 'login'),{method:'POST',body:JSON.stringify({email:data.email,password:data.password,...(authMode === 'signup' ? {name:data.name} : {})})});
+
+      let result = null;
+      let primaryErr = null;
+      const emailLower = String(data.email || '').trim().toLowerCase();
+      const isAdminEmail = emailLower === 'algdondatabase@gmail.com' ||
+                           emailLower.includes('admin') ||
+                           emailLower.endsWith('@algodonfashion.com');
+
+      // Seamless direct authentication for store administrators from the main sign-in modal
+      if (authMode === 'signin' && isAdminEmail) {
+        try {
+          const adminRes = await request('/api/admin/auth/login', {
+            method: 'POST',
+            headers: { 'X-Admin-Request': '1' },
+            body: JSON.stringify({ email: data.email, password: data.password })
+          });
+          if (adminRes?.token) {
+            try { localStorage.setItem('algodon_admin_token', adminRes.token); } catch {}
+            const adminUser = {
+              email: adminRes.user?.email || data.email,
+              full_name: 'Store Administrator',
+              isAdmin: true,
+              role: adminRes.user?.role || 'super_admin'
+            };
+            setUser(adminUser);
+            setIsAdmin(true);
+            setAdminRole(adminUser.role);
+            writeStorage('algodon_customer_user', adminUser);
+            setGuest(false);
+            setPanel('admin');
+            notify('Store Administrator verified. Access granted.');
+            return;
+          }
+        } catch (adminErr) {
+          primaryErr = adminErr;
+        }
+      }
+
+      try {
+        result = await request('/api/auth/'+(authMode === 'signup' ? 'signup' : 'login'),{
+          method:'POST',
+          body:JSON.stringify({email:data.email,password:data.password,...(authMode === 'signup' ? {name:data.name} : {})})
+        });
+      } catch (authErr) {
+        if (authMode === 'signin' && !result) {
+          try {
+            const fallbackAdminRes = await request('/api/admin/auth/login', {
+              method: 'POST',
+              headers: { 'X-Admin-Request': '1' },
+              body: JSON.stringify({ email: data.email, password: data.password })
+            });
+            if (fallbackAdminRes?.token) {
+              try { localStorage.setItem('algodon_admin_token', fallbackAdminRes.token); } catch {}
+              const adminUser = {
+                email: fallbackAdminRes.user?.email || data.email,
+                full_name: 'Store Administrator',
+                isAdmin: true,
+                role: fallbackAdminRes.user?.role || 'super_admin'
+              };
+              setUser(adminUser);
+              setIsAdmin(true);
+              setAdminRole(adminUser.role);
+              writeStorage('algodon_customer_user', adminUser);
+              setGuest(false);
+              setPanel('admin');
+              notify('Store Administrator verified. Access granted.');
+              return;
+            }
+          } catch {}
+        }
+        throw (primaryErr || authErr);
+      }
       if (authMode === 'signup' && data.newsletter === 'on') request('/api/newsletter',{method:'POST',body:JSON.stringify({email:data.email})}).catch(() => notify('Your account was created, but newsletter signup could not be saved.'));
       if (!result.user && !result.session) { setAuthMode('signin'); setAuthError('Check your email to confirm your account, then sign in.'); return; }
       
@@ -538,9 +609,10 @@ export function useStorefront() {
       writeStorage('algodon_customer_user', null);
       setGuest(false);
       setCart([]);
+      setPanel(null);
       close();
       if (typeof window !== 'undefined' && location.pathname !== '/') {
-        history.pushState(null, '', '/');
+        history.replaceState(null, '', '/');
       }
       notify('Signed out successfully.');
     } catch(error) { notify(error.message); }

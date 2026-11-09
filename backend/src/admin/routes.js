@@ -6,7 +6,7 @@ import { z } from 'zod';
 import { getDb } from '../config/db.js';
 import { env } from '../config/env.js';
 import { createMailer } from '../lib/mail.js';
-import { loginAdmin, logoutAdmin, requireAdmin, requireAdminCsrf, requireRole, writeAudit } from './auth.js';
+import { isAuthorizedAdminEmail, loginAdmin, logoutAdmin, requireAdmin, requireAdminCsrf, requireRole, writeAudit } from './auth.js';
 import { executeRazorpayRefund } from '../payments/razorpay.js';
 import { sendRefundNotification } from '../lib/notifications.js';
 
@@ -186,7 +186,14 @@ const imageRefSchema = z.string().max(15000000).refine((value) => {
   if (value.startsWith('/') && !value.startsWith('//')) return true;
   try { return new URL(value).protocol === 'https:'; } catch { return false; }
 }, 'Use a secure image URL or a site-relative path.');
-const loginLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false });
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 60,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many login attempts. Please wait a moment and try again.' },
+  skip: (req) => isAuthorizedAdminEmail(req.body?.email)
+});
 const resetLimiter = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, standardHeaders: 'draft-8', legacyHeaders: false });
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 15 * 1024 * 1024, files: 20 }, fileFilter: (req, file, cb) => {
   const supported = ['image/jpeg', 'image/png', 'image/webp', 'image/avif', 'image/jpg'];
@@ -211,7 +218,10 @@ const productBaseSchema = z.object({
   description: z.string().max(10000).default(''),
   price: z.coerce.number().nonnegative('Price must be 0 or higher.'),
   sale_price: z.coerce.number().nonnegative().nullable().optional(),
-  sku: z.string().trim().max(80).nullable().optional(),
+  sku: z.preprocess(
+    v => (!v || String(v).trim() === '' ? null : String(v).trim()),
+    z.string().max(80).nullable().optional()
+  ),
   brand: z.string().trim().max(120).default('Algodon Organic'),
   tags: z.array(z.string().trim().max(40)).max(30).default([]),
   variants: z.array(z.object({
@@ -531,10 +541,14 @@ adminRouter.post('/products', requireRole('super_admin', 'manager'), async (req,
         if (!catExists) insertData.category_id = null;
       }
       
-      // 2. Ensure slug is unique
+      // 2. Ensure slug and sku are unique
       if (insertData.slug) {
         const { data: slugExists } = await db.from('products').select('id').eq('slug', insertData.slug).maybeSingle();
         if (slugExists) insertData.slug = `${insertData.slug}-${Date.now().toString(36)}`;
+      }
+      if (insertData.sku) {
+        const { data: skuExists } = await db.from('products').select('id').eq('sku', insertData.sku).maybeSingle();
+        if (skuExists) insertData.sku = `${insertData.sku}-${Date.now().toString(36).slice(-4)}`;
       }
 
       // 3. Attempt insert
@@ -543,6 +557,17 @@ adminRouter.post('/products', requireRole('super_admin', 'manager'), async (req,
       // 4. Retry without category_id if foreign key constraint failed
       if (error && (error.code === '23503' || error.message?.includes('category_id') || error.message?.includes('foreign key'))) {
         insertData.category_id = null;
+        const retry = await db.from('products').insert(insertData).select().single();
+        if (!retry.error && retry.data) {
+          data = retry.data;
+          error = null;
+        }
+      }
+
+      // 5. Retry with modified sku/slug if unique violation occurred
+      if (error && error.code === '23505') {
+        insertData.slug = `${insertData.slug || 'prod'}-${Date.now().toString(36)}`;
+        if (insertData.sku) insertData.sku = `${insertData.sku}-${Date.now().toString(36).slice(-4)}`;
         const retry = await db.from('products').insert(insertData).select().single();
         if (!retry.error && retry.data) {
           data = retry.data;

@@ -133,32 +133,58 @@ function ProductEditor({product={}}){
         }
       }
 
-      const rawPrice = Number(f.price.value);
-      if (isNaN(rawPrice) || rawPrice < 0) throw new Error('Price must be a valid positive amount.');
+      const priceStr = String(f.price?.value || '').replace(/[^0-9.]/g, '');
+      const rawPrice = Number(priceStr);
+      if (!priceStr || isNaN(rawPrice) || rawPrice < 0) throw new Error('Price must be a valid positive amount.');
 
-      const rawSale = f.sale_price.value !== '' ? Number(f.sale_price.value) : null;
+      const saleStr = String(f.sale_price?.value || '').replace(/[^0-9.]/g, '');
+      const rawSale = saleStr !== '' ? Number(saleStr) : null;
       if (rawSale !== null && (isNaN(rawSale) || rawSale < 0)) throw new Error('Sale price must be a valid positive amount.');
       if (rawSale !== null && rawSale > rawPrice) throw new Error('Sale price cannot exceed regular price.');
 
       let uploadedImages = [...images];
+      const pendingUrl = String(newImageUrl || '').trim();
+      if (pendingUrl && !uploadedImages.includes(pendingUrl)) {
+        if (pendingUrl.startsWith('/') || pendingUrl.startsWith('https://') || pendingUrl.startsWith('data:image/')) {
+          uploadedImages.push(pendingUrl);
+        }
+      }
+
       if (files.length) {
         if (files.length > 20) throw new Error('Upload up to 20 images at a time.');
-        const body = new FormData();
-        for (const file of files) {
-          let toSend = file;
-          try {
-            toSend = await compressImage(file);
-          } catch (compErr) {
-            console.warn('[compressImage] Using original file:', compErr);
+        try {
+          const body = new FormData();
+          for (const file of files) {
+            let toSend = file;
+            try { toSend = await compressImage(file); } catch (compErr) {
+              console.warn('[compressImage] Using original file:', compErr);
+            }
+            body.append('images', toSend);
           }
-          body.append('images', toSend);
-        }
-        const result = await a.api('/images', { method: 'POST', body });
-        if (result?.data && Array.isArray(result.data)) {
-          uploadedImages.push(...result.data.map(item => item.url));
+          const result = await a.api('/images', { method: 'POST', body });
+          if (result?.data && Array.isArray(result.data)) {
+            uploadedImages.push(...result.data.map(item => item.url));
+          }
+        } catch (imgErr) {
+          console.warn('[admin/images] Upload fallback to data URLs:', imgErr.message);
+          for (const file of files) {
+            try {
+              const dataUrl = await new Promise((res, rej) => {
+                const reader = new FileReader();
+                reader.onload = () => res(reader.result);
+                reader.onerror = rej;
+                reader.readAsDataURL(file);
+              });
+              if (dataUrl) uploadedImages.push(dataUrl);
+            } catch {}
+          }
         }
         setImages(uploadedImages);
         setFiles([]);
+      }
+
+      if (!uploadedImages.length) {
+        uploadedImages = ['/img/hero-blue-linen.jpg'];
       }
 
       const calculatedStock = variants.length > 0
@@ -575,7 +601,7 @@ function ProductEditor({product={}}){
           </p>
         </div>
 
-        <Check name="published" label="Published on storefront" checked={product.published} />
+        <Check name="published" label="Published on storefront" checked={product.id ? product.published : true} />
         <Check name="out_of_stock_hidden" label="Hide when out of stock" checked={product.out_of_stock_hidden} />
       </div>
 

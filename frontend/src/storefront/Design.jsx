@@ -217,7 +217,7 @@ export function AccountDrawer({s}) {
             style={{
               flex: 1.1,
               minHeight: "560px",
-              background: "url('/img/hero.jpg?v=2') center/cover no-repeat",
+              background: "url('/img/hero-blue-linen.jpg?v=20261109') center/cover no-repeat",
               position: "relative",
               display: "flex",
               flexDirection: "column",
@@ -898,7 +898,7 @@ export function Hero({s}) {
   return (
     <>
       <div className="hero">
-        <img src="/img/hero.jpg?v=2" alt="Algodon Organic handcrafted pure cotton shirt" />
+        <img src="/img/hero-blue-linen.jpg?v=20261109" alt="Algodon Organic handcrafted pure cotton shirt" />
         <span className="hero-tag">100% Organic Cotton</span>
         <div className="hero-copy">
           <span className="eyebrow">Hand block-print motifs · Coconut shell buttons</span>

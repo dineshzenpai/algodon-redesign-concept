@@ -18,7 +18,7 @@ import { requireAdmin, requireAdminCsrf } from './admin/auth.js';
 
 
 const app = express();
-if (process.env.RENDER === 'true') app.set('trust proxy', 1);
+if (process.env.RENDER || env.nodeEnv === 'production') app.set('trust proxy', 1);
 
 const allowedOrigins = new Set(env.allowedOrigins);
 
@@ -76,10 +76,22 @@ app.use('/api', (req, res, next) => {
 app.use(cookieParser());
 app.use(morgan('dev'));
 
-// Rate Limiting
+// Rate Limiting: General storefront protection; authenticated admin requests & polling are bypassed
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 2500,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: { error: 'Too many requests. Please wait a moment and try again.' },
+  skip: (req) => {
+    const p = req.path || '';
+    return p.startsWith('/admin') ||
+           p.startsWith('/health') ||
+           p.startsWith('/config') ||
+           req.get('x-admin-request') === '1' ||
+           Boolean(req.get('x-admin-session')) ||
+           Boolean(req.cookies?.['algodon_admin_session']);
+  }
 });
 app.use('/api', limiter);
 

@@ -103,11 +103,12 @@ export function ProductCard({product, s}) {
             <div
               title="Click next picture"
               onClick={nextPic}
+              className="cursor-next-pic"
               style={{
                 position: 'absolute',
                 top: 0,
                 right: 0,
-                width: '35%',
+                width: '50%',
                 height: '100%',
                 zIndex: 2,
                 cursor: 'e-resize'
@@ -117,11 +118,12 @@ export function ProductCard({product, s}) {
             <div
               title="Click previous picture"
               onClick={prevPic}
+              className="cursor-prev-pic"
               style={{
                 position: 'absolute',
                 top: 0,
                 left: 0,
-                width: '35%',
+                width: '50%',
                 height: '100%',
                 zIndex: 2,
                 cursor: 'w-resize'
@@ -365,6 +367,36 @@ export function ProductDetailModal({s}) {
 
             {hasMultiplePics && (
               <>
+                <div
+                  title="Click next picture"
+                  onClick={nextModalPic}
+                  className="cursor-next-pic"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    right: 0,
+                    width: '50%',
+                    height: '100%',
+                    zIndex: 3,
+                    cursor: 'e-resize'
+                  }}
+                />
+
+                <div
+                  title="Click previous picture"
+                  onClick={prevModalPic}
+                  className="cursor-prev-pic"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '50%',
+                    height: '100%',
+                    zIndex: 3,
+                    cursor: 'w-resize'
+                  }}
+                />
+
                 <button
                   type="button"
                   aria-label="Previous picture"
